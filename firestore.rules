@@ -1,0 +1,105 @@
+rules_version = '2';
+
+// Reglas de seguridad de GymApp.
+// Cópialas en Firebase › Firestore Database › Reglas y pulsa "Publicar".
+//
+// - Cada cliente ve y edita solo lo suyo.
+// - El entrenador ve los perfiles, rutinas y entrenos de los clientes vinculados a él,
+//   les crea/edita rutinas y puede comentar sus entrenos.
+// - Un cliente no puede tocar el contenido de una rutina puesta por el entrenador.
+
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function userPath(id) { return /databases/$(db)/documents/users/$(id); }
+    function user(id) { return get(userPath(id)).data; }
+    function userAfter(id) { return getAfter(userPath(id)).data; }
+    function isTrainerOf(clientId) {
+      return exists(userPath(clientId)) && user(clientId).trainerId == me();
+    }
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (
+        uid == me()
+        || resource.data.trainerId == me()
+        || (resource.data.role == 'trainer' && user(me()).trainerId == uid)
+      );
+      allow create: if signedIn() && uid == me()
+        && request.resource.data.role in ['trainer', 'client']
+        && request.resource.data.trainerId == null;
+      allow update: if signedIn() && uid == me()
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.code == resource.data.code
+        && (
+          request.resource.data.trainerId == null
+          || request.resource.data.trainerId == resource.data.trainerId
+          || user(request.resource.data.trainerId).role == 'trainer'
+        );
+      allow delete: if false;
+    }
+
+    match /trainerCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.trainerId == me()
+        && userAfter(me()).role == 'trainer'
+        && userAfter(me()).code == code;
+      allow update, delete: if false;
+    }
+
+    // trainerId del documento = entrenador actual del cliente (o null).
+    function validOwner(d) {
+      return (d.clientId == me() && d.trainerId == userAfter(me()).trainerId)
+        || (d.trainerId == me() && isTrainerOf(d.clientId));
+    }
+
+    match /routines/{id} {
+      allow read: if signedIn() && (resource.data.clientId == me() || resource.data.trainerId == me());
+      allow create: if signedIn()
+        && request.resource.data.authorId == me()
+        && validOwner(request.resource.data)
+        && (
+          (request.resource.data.authorRole == 'client' && request.resource.data.clientId == me())
+          || (request.resource.data.authorRole == 'trainer' && isTrainerOf(request.resource.data.clientId))
+        );
+      allow update: if signedIn()
+        && request.resource.data.clientId == resource.data.clientId
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.authorRole == resource.data.authorRole
+        && validOwner(request.resource.data)
+        && (
+          isTrainerOf(resource.data.clientId)
+          || (resource.data.clientId == me() && (
+                resource.data.authorRole == 'client'
+                || changedOnly(['trainerId', 'active', 'updatedAt'])
+             ))
+        );
+      allow delete: if signedIn() && (
+        isTrainerOf(resource.data.clientId)
+        || (resource.data.clientId == me() && resource.data.authorRole == 'client')
+      );
+    }
+
+    match /workouts/{id} {
+      allow read: if signedIn() && (resource.data.clientId == me() || resource.data.trainerId == me());
+      allow create: if signedIn()
+        && request.resource.data.clientId == me()
+        && request.resource.data.trainerId == userAfter(me()).trainerId;
+      allow update: if signedIn() && (
+        (resource.data.clientId == me()
+          && request.resource.data.clientId == me()
+          && request.resource.data.trainerId == userAfter(me()).trainerId)
+        || (resource.data.trainerId == me()
+          && isTrainerOf(resource.data.clientId)
+          && changedOnly(['trainerComment']))
+      );
+      allow delete: if signedIn() && resource.data.clientId == me();
+    }
+  }
+}
