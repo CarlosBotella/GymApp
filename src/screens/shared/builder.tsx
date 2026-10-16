@@ -1,10 +1,13 @@
+import { EMPTY_FILTERS, matchesFilters } from '../../data/free-exercises';
+import { ExerciseFilters } from '../../ui/exercise-filters';
+import { ExerciseThumb } from '../../ui/exercise-media';
 import { useMemo, useState } from 'react';
-import { DAY_GROUP_NAMES, EXERCISES, GROUP_NAMES, LOAD_LABEL, ex, inferDayGroup } from '../../data/catalog';
+import { DAY_GROUP_NAMES, GROUP_NAMES, LOAD_LABEL, ex, inferDayGroup, searchCatalog } from '../../data/catalog';
 import { BASES } from '../../data/templates';
 import { useApp } from '../../lib/app';
 import { buildDraft, toNotes } from '../../lib/quicknotes';
 import type { GroupId, PlanExercise, RoutineDay } from '../../lib/types';
-import { clone, n, norm, uid } from '../../lib/util';
+import { clone, n, uid } from '../../lib/util';
 import { IcArrowDown, IcArrowUp, IcCheck, IcPlus, IcSearch } from '../../ui/icons';
 import { Seg, Sheet, Stepper } from '../../ui/kit';
 import { NotesEditor } from './notes';
@@ -162,7 +165,7 @@ function ListEditor({ days, setDays, lastWeight }: { days: RoutineDay[]; setDays
     });
   const remove = (dayId: string, planId: string) => updDay(dayId, (d) => ({ ...d, exercises: d.exercises.filter((p) => p.id !== planId) }));
   const add = (dayId: string, exerciseId: string) => {
-    const plan: PlanExercise = { id: uid(8), exerciseId, sets: 3, reps: ex(exerciseId)?.load === 'bodyweight' ? 12 : 10, weight: lastWeight(exerciseId) };
+    const plan: PlanExercise = { id: uid(8), exerciseId, sets: 3, reps: ex(exerciseId)?.measure === 'seconds' ? 30 : ex(exerciseId)?.load === 'bodyweight' ? 12 : 10, weight: lastWeight(exerciseId) };
     updDay(dayId, (d) => ({ ...d, exercises: [...d.exercises, plan] }));
   };
   const replace = (dayId: string, planId: string, exerciseId: string) => updPlan(dayId, planId, { exerciseId, rawName: undefined, weight: lastWeight(exerciseId) });
@@ -227,7 +230,7 @@ function ListEditor({ days, setDays, lastWeight }: { days: RoutineDay[]; setDays
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                     <span className="m">{x?.name || `«${p.rawName}»`}</span>
                     <span className="small mute">
-                      {p.sets} × {p.reps}
+                      {p.sets} × {p.reps}{x?.measure === 'seconds' ? ' s' : ''}
                       {!body && (p.weight !== null ? ` · ${dumb ? '2 × ' : ''}${n(p.weight)} kg` : ' · sin peso')}
                     </span>
                   </span>
@@ -238,12 +241,12 @@ function ListEditor({ days, setDays, lastWeight }: { days: RoutineDay[]; setDays
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', rowGap: 4, alignItems: 'center' }}>
                       <span className="small">Series</span>
                       <Stepper value={p.sets} step={1} label="series" onChange={(v) => updPlan(d.id, p.id, { sets: Math.max(1, Math.min(10, v)) })} />
-                      <span className="small">{x?.id === 'plancha' ? 'Segundos' : 'Repeticiones'}</span>
+                      <span className="small">{x?.measure === 'seconds' ? 'Segundos' : 'Repeticiones'}</span>
                       <Stepper value={p.reps} step={1} label="repeticiones" onChange={(v) => updPlan(d.id, p.id, { reps: Math.max(1, v) })} />
                       {!body && (
                         <>
                           <span className="small">
-                            Peso{dumb ? ' por mancuerna' : ''}
+                            Peso{x?.imported ? ' externo total' : dumb ? ' por mancuerna' : ''}
                             {p.weight === null && <span className="xs mute" style={{ display: 'block' }}>Vacío: usa el de la última vez</span>}
                           </span>
                           <Stepper
@@ -319,11 +322,9 @@ function ListEditor({ days, setDays, lastWeight }: { days: RoutineDay[]; setDays
 function Picker({ title, added, replacing, onPick, onClose }: { title: string; added: string[]; replacing: boolean; onPick: (id: string) => void; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [g, setG] = useState<'all' | GroupId>('all');
-  const nq = norm(q);
-  const list = useMemo(
-    () => EXERCISES.filter((x) => (g === 'all' || x.group === g) && (!nq || norm(x.name).includes(nq) || x.aliases.some((a) => norm(a).includes(nq)) || norm(x.muscles).includes(nq))),
-    [g, nq],
-  );
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [limit, setLimit] = useState(60);
+  const list = useMemo(() => searchCatalog(q, g).filter((x) => matchesFilters(x, filters)), [g, q, filters]);
   const justAdded = added.length;
   return (
     <Sheet label={title} onClose={onClose}>
@@ -348,23 +349,28 @@ function Picker({ title, added, replacing, onPick, onClose }: { title: string; a
             type="search"
             placeholder="Buscar: prensa, remo, glúteo…"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => { setQ(e.target.value); setLimit(60); }}
             style={{ flex: '1 1 auto', minWidth: 0, height: 44, border: 0, background: 'transparent', fontSize: 16, outline: 'none', color: 'var(--ink)' }}
           />
         </div>
-        <Seg value={g} onChange={setG} label="Grupo" options={[['all', 'Todos'], ...(Object.entries(GROUP_NAMES) as [GroupId, string][])]} />
+        <Seg value={g} onChange={(v) => { setG(v); setLimit(60); }} label="Grupo" options={[['all', 'Todos'], ...(Object.entries(GROUP_NAMES) as [GroupId, string][])]} />
+        <ExerciseFilters value={filters} onChange={(v) => { setFilters(v); setLimit(60); }} />
+        <p className="xs mute" style={{ margin: '6px 0' }}>{list.length} ejercicios · imágenes e instrucciones gratuitas</p>
       </div>
       <div style={{ minHeight: '40dvh' }}>
         {list.length === 0 && <p className="small mute" style={{ padding: '16px 0' }}>No hay ningún ejercicio con «{q}».</p>}
-        {list.map((x) => {
+        {list.slice(0, limit).map((x) => {
           const times = added.filter((a) => a === x.id).length;
           return (
             <button key={x.id} type="button" className="row" style={{ width: '100%', textAlign: 'left' }} onClick={() => onPick(x.id)}>
-              <span className="col">
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <ExerciseThumb exercise={x} />
+                <span className="col">
                 <span className="t">{x.name}</span>
                 <span className="s">
-                  {GROUP_NAMES[x.group]} · {x.muscles.toLowerCase()} · {LOAD_LABEL[x.load]}
+                  {GROUP_NAMES[x.group]} · {x.equipment || LOAD_LABEL[x.load]}
                 </span>
+              </span>
               </span>
               {times > 0 && !replacing ? (
                 <span className="xs b" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -376,6 +382,7 @@ function Picker({ title, added, replacing, onPick, onClose }: { title: string; a
             </button>
           );
         })}
+        {list.length > limit && <button type="button" className="btn2" style={{ width: '100%', marginTop: 12 }} onClick={() => setLimit(limit + 60)}>Ver 60 más ({list.length - limit} restantes)</button>}
       </div>
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--sheet)', paddingTop: 10 }}>
         <button type="button" className="btn" onClick={onClose}>

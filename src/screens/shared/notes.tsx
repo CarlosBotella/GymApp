@@ -103,7 +103,7 @@ export function NotesEditor({
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                     <span className="m">{x ? x.name : `«${l.name}»`}</span>
                     <span className="small mute">
-                      {plan ? `${plan.sets} × ${plan.reps}` : ''}
+                      {plan ? `${plan.sets} × ${plan.reps}${x?.measure === 'seconds' ? ' s' : ''}` : ''}
                       {plan && plan.weight !== null ? ` · ${x?.load === 'dumbbell' ? '2 × ' : ''}${n(plan.weight)} kg` : ''}
                       {plan && plan.weight !== null && l.weight === null ? ', como la última vez' : ''}
                       {!x ? ' · no lo reconozco: se guardará así y tu entrenador podrá asignarlo' : ''}

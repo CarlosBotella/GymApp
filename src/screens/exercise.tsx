@@ -1,3 +1,5 @@
+import { ExerciseGallery } from '../ui/exercise-media';
+import { LEVEL_NAMES, CATEGORY_NAMES, MUSCLE_NAMES } from '../data/free-exercises';
 import { useEffect, useRef, useState } from 'react';
 import { GROUP_NAMES, equivalent, ex, increment } from '../data/catalog';
 import { useApp, useMe } from '../lib/app';
@@ -61,15 +63,22 @@ export function ExerciseSheet({ id }: { id: string }) {
         </p>
       </div>
       <div className="main" style={{ paddingTop: 14 }}>
-        <a href={video} target="_blank" rel="noopener noreferrer" style={{ width: '100%', aspectRatio: '16 / 9', border: '1px solid var(--line)', background: 'var(--band)', color: 'var(--mute)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}>
-          <div style={{ width: '60%', color: 'var(--ink)' }}>
-            <Drawing kind={x.kind} height={90} />
-          </div>
-          <span className="xs" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <IcVideo width={16} height={16} /> Ver vídeos de la técnica (YouTube)
-          </span>
+        <ExerciseGallery key={x.id} exercise={x} />
+        <a className="txt" href={video} target="_blank" rel="noopener noreferrer" style={{ marginTop: 8 }}>
+          <IcVideo width={16} height={16} /> Buscar demostraciones en YouTube
         </a>
-        <Sec title="Cómo se hace" />
+        {(x.level || x.category) && <p className="small mute" style={{ marginTop: 8 }}>
+          {[x.level && LEVEL_NAMES[x.level], x.category && CATEGORY_NAMES[x.category]].filter(Boolean).join(' · ')}
+        </p>}
+        {!!x.secondaryMuscles?.length && <p className="small mute" style={{ marginTop: 6 }}>
+          Músculos secundarios: {x.secondaryMuscles.map((m) => MUSCLE_NAMES[m] || m).join(', ')}.
+        </p>}
+        {x.imported && <p className="small mute" style={{ marginTop: 8 }}>
+          Instrucciones originales en inglés. {x.load === 'other' ? 'Registra los kg externos totales (suma las dos mancuernas si usas dos).' : 'Movimiento sin carga externa.'}
+          {x.measure === 'seconds' ? ' Registra la duración de cada serie en segundos.' : ''}
+        </p>}
+        <Sec title={x.imported ? "Cómo se hace · inglés" : "Cómo se hace"} />
+        {!x.steps.length && <p className="small mute" style={{ marginTop: 8 }}>La fuente no incluye instrucciones escritas para este ejercicio.</p>}
         <ol style={{ margin: '8px 0 0', padding: 0, listStyle: 'none' }}>
           {x.steps.map((t, i) => (
             <li key={i} style={{ display: 'grid', gridTemplateColumns: '22px 1fr', padding: '6px 0', fontSize: 15 }}>
@@ -78,6 +87,11 @@ export function ExerciseSheet({ id }: { id: string }) {
             </li>
           ))}
         </ol>
+
+        {!x.imported && x.instructionsEn?.length ? <details style={{ marginTop: 12 }}>
+          <summary className="small">Ver instrucciones completas de la fuente (inglés)</summary>
+          <ol style={{ paddingLeft: 20 }}>{x.instructionsEn.map((text, i) => <li key={i} className="small" style={{ marginTop: 6 }}>{text}</li>)}</ol>
+        </details> : null}
 
         <Sec
           title="Tus ajustes"

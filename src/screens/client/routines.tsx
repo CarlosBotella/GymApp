@@ -225,7 +225,7 @@ export function RoutineView({ routineId }: { routineId: string }) {
                   <span className="col">
                     <span className="t">{x?.name || p.rawName}</span>
                     <span className="s">
-                      {p.sets} × {p.reps}
+                      {p.sets} × {p.reps}{x?.measure === 'seconds' ? ' s' : ''}
                       {p.weight !== null ? ` · ${x?.load === 'dumbbell' ? '2 × ' : ''}${n(p.weight)} kg` : last ? ` · última vez ${n(last.weight)} kg` : ''}
                     </span>
                   </span>

@@ -1,63 +1,65 @@
-// Service worker de GymApp: la app abre y funciona sin conexión.
-// - Navegación: red primero y, si no hay, la copia guardada.
-// - Archivos de la propia web (js, css, iconos, worker de pdf.js): caché primero.
-// - Firebase y Google Fonts no pasan por aquí salvo las fuentes (caché primero).
-const VERSION = 'gymapp-v1';
+// Catálogo y pantallas disponibles sin conexión; las imágenes se guardan al verlas.
+const VERSION = 'gymapp-free-exercises-v2';
+const CACHE_PREFIX = 'gymapp-';
+const appUrl = (path) => new URL(path, self.registration.scope).href;
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(VERSION).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png']).catch(() => undefined)),
-  );
-  self.skipWaiting();
+self.addEventListener('install', (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(VERSION);
+    const response = await fetch(appUrl('asset-manifest.json'), { cache: 'no-store' });
+    if (!response.ok) throw new Error('No se ha podido leer el manifiesto de la app');
+    const manifest = await response.json();
+    const assets = Object.values(manifest).flatMap((entry) => [entry.file, ...(entry.css || []), ...(entry.assets || [])]);
+    const core = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'pdf.worker.min.mjs', 'licenses/free-exercise-db.txt'];
+    await cache.addAll([...new Set([...core, ...assets])].map(appUrl));
+    await self.skipWaiting();
+  })());
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))));
-  self.clients.claim();
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== VERSION).map((key) => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (e) => {
-  const req = e.request;
-  if (req.method !== 'GET') return;
-  const url = new URL(req.url);
-  const sameOrigin = url.origin === self.location.origin;
-  const fonts = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
-  if (!sameOrigin && !fonts) return;
-
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(VERSION).then((c) => c.put('./index.html', copy));
-          return res;
-        })
-        .catch(() => caches.match('./index.html').then((r) => r || caches.match('./'))),
-    );
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || !url.href.startsWith(self.registration.scope)) return;
+  if (request.mode === 'navigate') {
+    event.respondWith((async () => {
+      const cache = await caches.open(VERSION);
+      try {
+        const response = await fetch(request);
+        if (response.ok) event.waitUntil(cache.put(appUrl('index.html'), response.clone()));
+        return response;
+      } catch {
+        return (await cache.match(appUrl('index.html'))) || Response.error();
+      }
+    })());
     return;
   }
-
-  e.respondWith(
-    caches.match(req).then(
-      (hit) =>
-        hit ||
-        fetch(req).then((res) => {
-          if (res.ok && (sameOrigin || fonts)) {
-            const copy = res.clone();
-            caches.open(VERSION).then((c) => c.put(req, copy));
-          }
-          return res;
-        }),
-    ),
-  );
+  event.respondWith((async () => {
+    const cache = await caches.open(VERSION);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok) {
+      // Images are cached on demand; quota failures must not hide a valid image.
+      event.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
+    }
+    return response;
+  })());
 });
 
-self.addEventListener('notificationclick', (e) => {
-  e.notification.close();
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((list) => {
-      const w = list.find((c) => 'focus' in c);
-      return w ? w.focus() : self.clients.openWindow('./#/entreno');
-    }),
-  );
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window' });
+    const window = windows.find((client) => client.url.startsWith(self.registration.scope) && 'focus' in client);
+    return window ? window.focus() : self.clients.openWindow(appUrl('./#/entreno'));
+  })());
 });

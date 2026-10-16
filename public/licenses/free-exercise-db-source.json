@@ -1,0 +1,13 @@
+{
+  "name": "Free Exercise DB",
+  "repository": "https://github.com/yuhonas/free-exercise-db",
+  "commit": "f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5",
+  "license": "Unlicense",
+  "exerciseCount": 876,
+  "mediaFiles": 1746,
+  "changes": [
+    "Spanish labels for selected exercises and metadata",
+    "Images converted to WebP, max 640 px",
+    "Original English instructions retained"
+  ]
+}

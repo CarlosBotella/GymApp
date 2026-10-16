@@ -1,3 +1,5 @@
+import { buildFreeCatalog, MUSCLE_NAMES } from './free-exercises';
+import { norm } from '../lib/util';
 import type { DayGroup, Exercise, GroupId, Load } from '../lib/types';
 
 // Catálogo genérico: no depende de un gimnasio concreto. Cada ejercicio trae
@@ -24,7 +26,7 @@ function e(
   return { id, name, aliases, group, muscles, equipment, load, ref, alts, steps, kind, look };
 }
 
-export const EXERCISES: Exercise[] = [
+export const ORIGINAL_EXERCISES: Exercise[] = [
   // ——— Pierna
   e('prensa', 'Prensa inclinada', ['prensa', 'prensa 45', 'leg press', 'prensa de piernas', 'prensa inclinada'], 'pierna', 'Cuádriceps y glúteo', 'Máquina de discos', 'plates', 120,
     ['sentadilla-bulgara', 'prensa-horizontal', 'sentadilla-goblet', 'sentadilla-hack'],
@@ -234,6 +236,8 @@ export const EXERCISES: Exercise[] = [
     ['De rodillas, rueda bajo los hombros', 'Rueda hacia delante con la espalda neutra', 'Vuelve tirando con el abdomen'], 'bodyweight'),
 ];
 
+export const EXERCISES: Exercise[] = buildFreeCatalog(ORIGINAL_EXERCISES);
+
 export const BY_ID: Record<string, Exercise> = Object.fromEntries(EXERCISES.map((x) => [x.id, x]));
 
 export function ex(id: string | null | undefined): Exercise | undefined {
@@ -268,6 +272,7 @@ export const LOAD_LABEL: Record<Load, string> = {
   barbell: 'barra',
   dumbbell: 'mancuernas',
   bodyweight: 'peso corporal',
+  other: 'carga total / otro material',
 };
 
 /** Grupo de día más probable a partir de los ejercicios */
@@ -300,7 +305,28 @@ export function increment(x: Exercise | undefined, inc: { machine: number; dumbb
 
 /** Carga equivalente al cambiar de ejercicio */
 export function equivalent(from: Exercise | undefined, to: Exercise | undefined, weight: number | null, inc: { machine: number; dumbbell: number }): number | null {
+  if (from?.imported || to?.imported) return null;
   if (!from || !to || weight === null || !from.ref || !to.ref) return to && to.load === 'bodyweight' ? null : weight;
   const step = increment(to, inc) || 1;
   return Math.max(step, Math.round((weight * to.ref) / from.ref / step) * step);
+}
+
+
+// Search includes Spanish muscles/materials and original English names.
+const SEARCH_TEXT = new Map(EXERCISES.map((x) => [x.id, norm([
+  x.name, ...x.aliases, x.muscles, x.equipment,
+  ...(x.primaryMuscles || []).map((m) => MUSCLE_NAMES[m] || m),
+  ...(x.secondaryMuscles || []).map((m) => MUSCLE_NAMES[m] || m),
+].join(' '))]));
+
+export function searchCatalog(query: string, group: 'all' | GroupId = 'all'): Exercise[] {
+  const q = norm(query);
+  const tokens = q.split(' ').filter(Boolean);
+  return EXERCISES.filter((x) => (group === 'all' || x.group === group)
+    && tokens.every((token) => SEARCH_TEXT.get(x.id)!.includes(token)))
+    .sort((a, b) => {
+      if (!q) return 0;
+      const rank = (x: Exercise) => [x.name, ...x.aliases].some((name) => norm(name) === q) ? 2 : norm(x.name).startsWith(q) ? 1 : 0;
+      return rank(b) - rank(a);
+    });
 }

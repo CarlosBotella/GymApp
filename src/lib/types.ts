@@ -2,7 +2,7 @@ export type Role = 'client' | 'trainer';
 
 export type GroupId = 'pierna' | 'pecho' | 'espalda' | 'hombro' | 'brazos' | 'core';
 export type DayGroup = 'pierna' | 'torso' | 'empuje' | 'tiron' | 'brazos' | 'hombro' | 'pecho' | 'espalda' | 'fullbody' | 'core';
-export type Load = 'plates' | 'stack' | 'barbell' | 'dumbbell' | 'bodyweight';
+export type Load = 'plates' | 'stack' | 'barbell' | 'dumbbell' | 'bodyweight' | 'other';
 export type Feel = 'easy' | 'ok' | 'hard';
 
 export interface Exercise {
@@ -16,7 +16,19 @@ export interface Exercise {
   /** peso de trabajo típico de un intermedio, para calcular equivalencias entre alternativas */
   ref: number;
   alts: string[];
-  steps: [string, string, string];
+  steps: string[];
+  sourceId?: string;
+  sourceUrl?: string;
+  originalName?: string;
+  instructionsEn?: string[];
+  images?: string[];
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
+  level?: 'beginner' | 'intermediate' | 'expert';
+  category?: string;
+  equipmentKey?: string;
+  imported?: boolean;
+  measure?: 'reps' | 'seconds';
   look?: [string, string, string];
   kind: 'press45' | 'machine' | 'cable' | 'barbell' | 'dumbbell' | 'bodyweight' | 'bench';
 }

@@ -8,6 +8,7 @@ export function doneSets(e: EntryLog) {
 
 export function entryVolume(e: EntryLog): number {
   const x = ex(e.exerciseId);
+  if (x?.measure === 'seconds') return 0;
   const factor = x?.load === 'dumbbell' && !['sentadilla-goblet'].includes(x.id) ? 2 : 1;
   return doneSets(e).reduce((a, s) => a + (s.weight || 0) * s.reps * factor, 0);
 }
@@ -26,6 +27,7 @@ export function plannedSetCount(w: Workout): number {
 }
 
 export function bestSet(e: EntryLog): { weight: number; reps: number } | null {
+  if (ex(e.exerciseId)?.measure === 'seconds') return null;
   let best: { weight: number; reps: number } | null = null;
   for (const s of doneSets(e)) {
     const w = s.weight || 0;
@@ -57,7 +59,7 @@ export function exerciseSeries(ws: Workout[], exerciseId: string): { at: number;
 
 export function topExercises(ws: Workout[], limit = 5): string[] {
   const c: Record<string, number> = {};
-  for (const w of finished(ws)) for (const e of w.entries) if (e.exerciseId && doneSets(e).length && ex(e.exerciseId)?.load !== 'bodyweight') c[e.exerciseId] = (c[e.exerciseId] || 0) + 1;
+  for (const w of finished(ws)) for (const e of w.entries) if (e.exerciseId && doneSets(e).length && ex(e.exerciseId)?.load !== 'bodyweight' && ex(e.exerciseId)?.measure !== 'seconds') c[e.exerciseId] = (c[e.exerciseId] || 0) + 1;
   return Object.entries(c)
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
@@ -171,6 +173,7 @@ export function progress(plan: PlanExercise, last: EntryLog | null, inc: { machi
   const x = ex(plan.exerciseId);
   const from = { weight: plan.weight, reps: plan.reps };
   if (!last) return { plan, from, to: from, change: 'keep', reason: 'Sin datos de la última vez' };
+  if (x?.imported) return { plan, from, to: from, change: 'keep', reason: 'Carga y objetivo ajustados manualmente' };
   const done = doneSets(last);
   const allReps = done.length >= plan.sets && done.slice(0, plan.sets).every((s) => s.reps >= plan.reps);
   const hard = done.some((s) => s.feel === 'hard');

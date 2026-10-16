@@ -221,6 +221,7 @@ export function LiveWorkout() {
               <IcPlay />
             </a>
           </div>
+          {x?.imported && x.load === 'other' && <p className="small mute" style={{ marginTop: 6 }}>Peso externo total: suma ambas mancuernas si usas dos.</p>}
           {entry.substituteOf && <p className="small mute" style={{ marginTop: 4 }}>Alternativa de {ex(entry.substituteOf)?.name}</p>}
           {x && (
             <a href={href(`/maquina/${x.id}`)} style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '72px minmax(0,1fr) 18px', columnGap: 14, alignItems: 'center', minHeight: 58, color: 'inherit', textDecoration: 'none' }}>
@@ -248,7 +249,7 @@ export function LiveWorkout() {
             )}
             <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
               <span className="big">{curSet?.reps ?? '—'}</span>
-              <span className="mute" style={{ fontSize: 17 }}>{x?.id === 'plancha' ? 's' : 'reps'}</span>
+              <span className="mute" style={{ fontSize: 17 }}>{x?.measure === 'seconds' ? 's' : 'reps'}</span>
             </span>
           </button>
           <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', fontSize: 15, gap: 12 }}>
@@ -470,6 +471,7 @@ export function LiveWorkout() {
           reps={curSet.reps}
           step={step}
           bodyweight={x?.load === 'bodyweight'}
+          seconds={x?.measure === 'seconds'}
           onClose={() => setSheet(null)}
           onSave={(wt, rp) => {
             update((d) => {
@@ -490,6 +492,7 @@ export function LiveWorkout() {
           reps={entry.sets[sheet.edit].reps}
           step={step}
           bodyweight={x?.load === 'bodyweight'}
+          seconds={x?.measure === 'seconds'}
           onClose={() => setSheet(null)}
           onSave={(wt, rp) => {
             const i = (sheet as { edit: number }).edit;
@@ -641,7 +644,7 @@ function OptionRow({ icon, title, sub, onClick, last }: { icon: React.ReactNode;
   );
 }
 
-function LoadSheet({ title = 'Peso y repeticiones', weight, reps, step, bodyweight, onClose, onSave, onUndo }: { title?: string; weight: number | null; reps: number; step: number; bodyweight: boolean; onClose: () => void; onSave: (w: number | null, r: number) => void; onUndo?: () => void }) {
+function LoadSheet({ title = 'Peso y repeticiones', weight, reps, step, bodyweight, seconds = false, onClose, onSave, onUndo }: { title?: string; weight: number | null; reps: number; step: number; bodyweight: boolean; seconds?: boolean; onClose: () => void; onSave: (w: number | null, r: number) => void; onUndo?: () => void }) {
   const [wt, setWt] = useState(weight ?? 0);
   const [rp, setRp] = useState(reps);
   return (
@@ -654,8 +657,8 @@ function LoadSheet({ title = 'Peso y repeticiones', weight, reps, step, bodyweig
         </div>
       )}
       <div className="row" style={{ minHeight: 72 }}>
-        <span className="t">Repeticiones</span>
-        <Stepper value={rp} onChange={(v) => setRp(Math.max(1, Math.round(v)))} step={1} label="repeticiones" big />
+        <span className="t">{seconds ? 'Segundos' : 'Repeticiones'}</span>
+        <Stepper value={rp} onChange={(v) => setRp(Math.max(1, Math.round(v)))} step={1} label={seconds ? 'segundos' : 'repeticiones'} big />
       </div>
       <p className="xs mute" style={{ marginTop: 8 }}>Se aplica a las series que faltan.</p>
       <button type="button" className="btn" style={{ marginTop: 16 }} onClick={() => onSave(bodyweight ? null : wt, rp)}>

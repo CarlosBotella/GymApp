@@ -1,5 +1,9 @@
+import { EMPTY_FILTERS, matchesFilters } from '../../data/free-exercises';
+import { ExerciseFilters } from '../../ui/exercise-filters';
+import { ExerciseThumb } from '../../ui/exercise-media';
+import { href } from '../../lib/router';
 import { useState } from 'react';
-import { EXERCISES, GROUP_NAMES, ex } from '../../data/catalog';
+import { EXERCISES, GROUP_NAMES, ex, searchCatalog } from '../../data/catalog';
 import { findExercise } from '../../lib/quicknotes';
 import { useApp, useMe } from '../../lib/app';
 import type { GroupId } from '../../lib/types';
@@ -13,6 +17,8 @@ export function Exercises() {
   const me = useMe();
   const td = useTrainerData();
   const [q, setQ] = useState('');
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [limit, setLimit] = useState(60);
   const [g, setG] = useState<'all' | GroupId>('all');
   const [open, setOpen] = useState<string | null>(null);
   const [assign, setAssign] = useState<{ routineId: string; planId: string; raw: string } | null>(null);
@@ -39,8 +45,7 @@ export function Exercises() {
       else unapproved.push({ from: e.substituteOf, to: e.exerciseId, who: td.clients.find((c) => c.id === w.clientId)?.name || 'Un cliente', times: 1 });
     }
   }
-  const nq = norm(q);
-  const list = EXERCISES.filter((x) => (g === 'all' || x.group === g) && (!nq || norm(x.name).includes(nq) || x.aliases.some((a) => norm(a).includes(nq))));
+  const list = searchCatalog(q, g).filter((x) => matchesFilters(x, filters));
   return (
     <div className="screen with-nav">
       <div className="topbar">
@@ -53,11 +58,14 @@ export function Exercises() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--ink)', color: 'var(--mute)' }}>
           <IcSearch />
           <label htmlFor="eq" className="sr">Buscar ejercicio</label>
-          <input id="eq" type="search" placeholder="Buscar por nombre o apodo" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: '1 1 auto', minWidth: 0, height: 44, border: 0, background: 'transparent', fontSize: 16, outline: 'none' }} />
+          <input id="eq" type="search" placeholder="Buscar por nombre o apodo" value={q} onChange={(e) => { setQ(e.target.value); setLimit(60); }} style={{ flex: '1 1 auto', minWidth: 0, height: 44, border: 0, background: 'transparent', fontSize: 16, outline: 'none' }} />
         </div>
         <div style={{ marginTop: 4 }}>
-          <Seg value={g} onChange={setG} label="Grupo" options={[['all', 'Todos'], ...(Object.entries(GROUP_NAMES) as [GroupId, string][])]} />
+          <Seg value={g} onChange={(v) => { setG(v); setLimit(60); }} label="Grupo" options={[['all', 'Todos'], ...(Object.entries(GROUP_NAMES) as [GroupId, string][])]} />
         </div>
+
+        <ExerciseFilters value={filters} onChange={(v) => { setFilters(v); setLimit(60); }} />
+        <p className="xs mute">{list.length} resultados · catálogo gratuito · sin suscripciones</p>
 
         {(unknown.length > 0 || unapproved.length > 0) && (
           <>
@@ -96,18 +104,21 @@ export function Exercises() {
           <span className="kicker">Catálogo · {EXERCISES.length}</span>
           <span>toca para ver alternativas</span>
         </div>
-        {list.map((x) => {
+        {list.slice(0, limit).map((x) => {
           const isOpen = open === x.id;
           const cur = altsOf(x.id);
           const candidates = [...new Set([...x.alts, ...cur])];
           return (
             <div key={x.id} style={{ borderBottom: '1px solid var(--line)' }}>
               <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : x.id)} className="row" style={{ borderBottom: 0, minHeight: 54 }}>
-                <span className="col">
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <ExerciseThumb exercise={x} />
+                  <span className="col">
                   <span className="t" style={{ fontWeight: isOpen ? 600 : 500 }}>{x.name}</span>
                   <span className="s">
                     {GROUP_NAMES[x.group]} · {x.equipment.toLowerCase()} · {cur.length} alt.
                   </span>
+                </span>
                 </span>
                 {isOpen ? <IcUp /> : <IcDown />}
               </button>
@@ -119,12 +130,15 @@ export function Exercises() {
                       <Switch on={cur.includes(a)} onChange={(v) => toggle(x.id, a, v)} label={`Aprobar ${ex(a)?.name}`} />
                     </div>
                   ))}
-                  <p className="xs mute" style={{ marginTop: 6 }}>{x.steps[0]}.</p>
+                  {!candidates.length && <p className="xs mute">Sin alternativas aprobadas para este ejercicio.</p>}
+                  <a className="txt accent" href={href(`/ejercicio/${x.id}`)}>Ver imágenes e instrucciones</a>
                 </div>
               )}
             </div>
           );
         })}
+        {!list.length && <p className="small mute">No hay ejercicios con estos filtros.</p>}
+        {list.length > limit && <button type="button" className="btn2" onClick={() => setLimit(limit + 60)}>Ver 60 más ({list.length - limit} restantes)</button>}
       </div>
       <TrainerNav active="ejercicios" />
       {assign && (

@@ -62,7 +62,9 @@ export function parseLine(raw: string, extraAliases: Record<string, string> = {}
   if (DAY_RE.test(line) || /:\s*$/.test(line)) {
     return { raw, kind: 'day', dayName: line.replace(/^#+\s*/, '').replace(/:\s*$/, '').trim() };
   }
-  const firstNum = line.search(/\d/);
+  const scheme = /(?:^|\s)(\d+)\s*[x×*]\s*(\d+)/.exec(line);
+  const exactName = EXERCISES.some((x) => [x.name, ...x.aliases].some((a) => norm(a) === norm(line.replace(/\bigual\b/i, '').trim())));
+  const firstNum = scheme ? scheme.index : exactName ? -1 : line.search(/\d/);
   const namePart = (firstNum === -1 ? line : line.slice(0, firstNum)).replace(/\bigual\b/i, '').trim();
   const rest = firstNum === -1 ? '' : line.slice(firstNum);
   let sets: number | undefined;
@@ -135,7 +137,7 @@ export function buildDraft(
     const exerciseId = chosen || (l.matches && l.matches[0] ? l.matches[0].exercise.id : null);
     const same = (l as ParsedLine & { same?: boolean }).same && prev;
     const sets = l.sets ?? (same ? prev!.sets : 3);
-    const reps = l.reps ?? (same ? prev!.reps : 10);
+    const reps = l.reps ?? (same ? prev!.reps : ex(exerciseId)?.measure === 'seconds' ? 30 : 10);
     let weight: number | null = l.weight === undefined ? (same ? prev!.weight : null) : l.weight;
     if (weight === null && exerciseId) weight = lastWeight(exerciseId);
     const keepId = reuse(exIndex)?.id;
