@@ -5,10 +5,10 @@ import { href } from '../lib/router';
 import { DOW_SHORT, cls, dow } from '../lib/util';
 import { IcBack, IcChart, IcChev, IcDumbbell, IcList, IcPeople, IcToday } from './icons';
 
-export function TopBar({ back, backLabel = 'Atrás', right }: { back?: string; backLabel?: string; right?: ReactNode }) {
+export function TopBar({ back, backLabel = 'Atrás', right, left }: { back?: string; backLabel?: string; right?: ReactNode; left?: ReactNode }) {
   return (
     <div className="topbar">
-      {back ? (
+      {left ? left : back ? (
         <a className="txt" href={href(back)}>
           <IcBack />
           {backLabel}

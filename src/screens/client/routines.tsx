@@ -11,6 +11,7 @@ import { startWorkout } from '../../lib/workout';
 import { IcChev, IcPlus } from '../../ui/icons';
 import { ClientNav, Loading, Sec, TopBar, WeekStrip, toast } from '../../ui/kit';
 import { RoutineBuilder, builderDays, initBuilder, type BuilderState } from '../shared/builder';
+import { RoleNav } from '../../ui/rolenav';
 
 const DAYS_ES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
@@ -289,7 +290,7 @@ export function RoutineEdit({ routineId }: { routineId: string | null }) {
     go(`/rutina/${r.id}`, true);
   };
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar
         back={existing ? `/rutina/${existing.id}` : '/rutinas'}
         backLabel={existing ? existing.name : 'Rutinas'}
@@ -324,6 +325,7 @@ export function RoutineEdit({ routineId }: { routineId: string | null }) {
           Guardar rutina
         </button>
       </div>
+      <RoleNav client="rutinas" />
     </div>
   );
 }

@@ -13,9 +13,12 @@ PWA para entrenar con tu entrenador personal: él asigna la rutina en un toque y
 - **Máquina ocupada**: adelanta el siguiente ejercicio compatible, usa una alternativa aprobada por tu entrenador o espera con contador.
 - **Ficha del ejercicio**: cómo se hace, dibujo del tipo de máquina, tu foto y nota de la máquina (se quedan en el móvil; el gimnasio es una cadena y cada sala es distinta), vídeos de YouTube, ajustes del asiento.
 - **Rutinas**: la del entrenador y las tuyas. Las tuyas se crean y editan de dos maneras, y puedes pasar de una a otra sin perder nada: **ejercicio a ejercicio** (eliges del catálogo y ajustas series, reps y kg con botones) o **como en notas** (`prensa 4x10 120`). También puedes partir de una plantilla. Las sugerencias del entrenador aparecen como «Sugerido por tu entrenador» y decides tú.
-- **Progreso**: constancia, volumen por semana, gráficas de líneas por ejercicio con la línea de progresión lineal y aviso de estancamiento, récords, y evolución corporal (peso, grasa, músculo…) a partir de tus informes **Visbody**.
+- **Progreso**: «de un vistazo» (si vas lineal, si baja la grasa, constancia), fuerza por ejercicio con la línea del ritmo lineal, volumen por semana, calendario de días entrenados, récords y evolución corporal a partir de tus informes **Visbody**. Todas las gráficas se pueden tocar o arrastrar con el dedo y dicen el dato y la fecha.
+- **Informes Visbody uno a uno**: lista de todos los subidos y cada informe entero (composición con su rango saludable, postura, perímetros), pasando al anterior o al siguiente con flechas o deslizando, comparando con el anterior o con el primero. Se puede abrir el PDF original y borrar un informe.
 - **Visbody**: subes el PDF y saca los datos (composición, postura, perímetros, segmental). Toma la fecha del propio PDF, así que puedes subir informes antiguos y se colocan en su sitio del historial.
 - **Exportar**: Excel, CSV, JSON e informe PDF.
+- **Tus datos**: en Ajustes puedes borrar entrenamientos, informes Visbody, tus rutinas, fotos y notas de máquinas o notas al entrenador, o la cuenta entera.
+- **Se maneja como una app**: la barra de abajo queda fija, no hay zoom y solo se navega con los botones de la app (el botón o gesto de atrás del sistema no hace nada).
 
 **Entrenador** (pestañas *Clientes · Rutinas · Ejercicios*)
 

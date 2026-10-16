@@ -7,6 +7,7 @@ import type { RoutineDay } from '../../lib/types';
 import { clone, n, roundTo } from '../../lib/util';
 import { Loading, Sec, TopBar, toast } from '../../ui/kit';
 import { useTrainerData } from './data';
+import { RoleNav } from '../../ui/rolenav';
 
 type Mode = 'up' | 'same' | 'cycle' | 'deload';
 
@@ -75,7 +76,7 @@ export function NextWeek({ routineId }: { routineId: string }) {
   );
 
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar back={`/cliente/${r.clientId}`} backLabel={client?.name || 'Cliente'} />
       <div className="pad">
         <h1 className="h1" style={{ marginTop: 2, fontSize: 34 }}>Semana {mode === 'cycle' ? 1 : r.week + 1}</h1>
@@ -146,6 +147,7 @@ export function NextWeek({ routineId }: { routineId: string }) {
           Revisar día a día
         </a>
       </div>
+      <RoleNav trainer="clientes" />
     </div>
   );
 }

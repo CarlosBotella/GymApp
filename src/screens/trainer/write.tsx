@@ -8,6 +8,7 @@ import { uid } from '../../lib/util';
 import { Loading, TopBar, toast } from '../../ui/kit';
 import { RoutineBuilder, builderDays, initBuilder, type BuilderState } from '../shared/builder';
 import { useTrainerData } from './data';
+import { RoleNav } from '../../ui/rolenav';
 
 export function Write({ forClient, routineId }: { forClient: string | null; routineId: string | null }) {
   const { store } = useApp();
@@ -69,7 +70,7 @@ export function Write({ forClient, routineId }: { forClient: string | null; rout
     }
   };
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar
         back={forClient ? `/cliente/${forClient}` : '/biblioteca'}
         backLabel={client?.name || 'Rutinas'}
@@ -112,17 +113,19 @@ export function Write({ forClient, routineId }: { forClient: string | null; rout
           {forClient && client ? `Enviar a ${client.name}` : existing ? 'Guardar cambios' : 'Guardar en tu biblioteca'}
         </button>
       </div>
+      <RoleNav trainer="rutinas" />
     </div>
   );
 }
 
 function Missing() {
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar back="/biblioteca" backLabel="Rutinas" />
       <div className="main">
         <p className="lead" style={{ marginTop: 20 }}>No encuentro esta rutina.</p>
       </div>
+      <RoleNav trainer="rutinas" />
     </div>
   );
 }

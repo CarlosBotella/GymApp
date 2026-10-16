@@ -10,6 +10,7 @@ import { Summary } from './screens/client/summary';
 import { RoutineEdit, RoutineView, Routines } from './screens/client/routines';
 import { Evolution, Progress } from './screens/client/progress';
 import { VisbodyImport } from './screens/client/visbody';
+import { BodyList, BodyReportView } from './screens/client/body';
 import { Export } from './screens/client/export';
 import { ExerciseSheet, MachineScreen } from './screens/exercise';
 import { Settings } from './screens/settings';
@@ -136,6 +137,8 @@ function Routes() {
       return <Evolution />;
     case 'visbody':
       return <VisbodyImport />;
+    case 'cuerpo':
+      return b ? <BodyReportView id={decodeURIComponent(b)} /> : <BodyList />;
     default:
       return <Today />;
   }

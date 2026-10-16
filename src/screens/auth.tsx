@@ -12,7 +12,7 @@ import { Switch, TopBar } from '../ui/kit';
 function startDemo(as: 'client' | 'trainer') {
   seedDemo(as);
   setSavedMode('local');
-  location.hash = as === 'trainer' ? '#/clientes' : '#/hoy';
+  history.replaceState(null, '', as === 'trainer' ? '#/clientes' : '#/hoy');
   location.reload();
 }
 

@@ -64,3 +64,34 @@ export async function shrinkImage(file: File, max = 900): Promise<Blob> {
     URL.revokeObjectURL(url);
   }
 }
+
+export async function deleteFile(key: string): Promise<void> {
+  try {
+    const db = await open();
+    db.transaction(STORE, 'readwrite').objectStore(STORE).delete(key);
+  } catch {
+    /* nada */
+  }
+}
+
+/** Borra todos los archivos cuya clave empieza por prefix (p. ej. «visbody/» o «photo/») */
+export async function deleteFilesWithPrefix(prefix: string): Promise<void> {
+  try {
+    const db = await open();
+    await new Promise<void>((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const st = tx.objectStore(STORE);
+      const r = st.openCursor();
+      r.onsuccess = () => {
+        const c = r.result;
+        if (!c) return;
+        if (String(c.key).startsWith(prefix)) c.delete();
+        c.continue();
+      };
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  } catch {
+    /* nada */
+  }
+}

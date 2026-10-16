@@ -6,12 +6,12 @@ import { useClientData } from '../lib/hooks';
 import { href, useRoute } from '../lib/router';
 import { bestSet, constancy, exerciseSeries, feelShare, finished, periodStart, records, topExercises, weeklyVolume, workoutVolume } from '../lib/stats';
 import type { Profile } from '../lib/types';
-import { dateLong, dateShort, month, n, signed } from '../lib/util';
+import { dateLong, dateShort, n, signed } from '../lib/util';
 import { POSTURE_LABELS } from '../lib/visbody';
-import { Bars, LineChart } from '../ui/charts';
+import { TrendChart, WeekBars } from '../ui/charts';
 import { IcDownload } from '../ui/icons';
 import { Loading, Seg, toast } from '../ui/kit';
-import { weekLabels } from './client/progress';
+import { weekStats } from './client/progress';
 
 type P = '4s' | '3m' | 'ano' | 'todo';
 
@@ -156,7 +156,7 @@ export function Report({ clientId }: { clientId: string }) {
               <span>toneladas levantadas</span>
             </div>
             <div style={{ marginTop: 16 }}>
-              <Bars values={vol.map((v) => v.volume)} labels={weekLabels(vol.map((v) => v.start))} aria={`Volumen semanal de ${client.name}`} axis />
+              <WeekBars weeks={weekStats(d.workouts, weeks)} aria={`Volumen semanal de ${client.name}`} />
             </div>
           </section>
 
@@ -200,7 +200,7 @@ export function Report({ clientId }: { clientId: string }) {
               <span>{reports.length ? `${reports.length} ${reports.length === 1 ? 'informe' : 'informes'} · último ${dateLong(last.date)}` : trainer && client.shareBody === false ? 'No los comparte contigo' : 'Sin informes'}</span>
             </div>
             {reports.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 20, marginTop: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, marginTop: 16 }}>
                 {(
                   [
                     ['peso', 'Peso · kg'],
@@ -209,10 +209,11 @@ export function Report({ clientId }: { clientId: string }) {
                   ] as const
                 ).map(([k, t]) => {
                   const pts = reports.filter((x) => x.composition[k]).map((x) => ({ x: x.date, y: x.composition[k].value }));
+                  const v = last.composition[k];
                   return (
                     <figure key={k} style={{ margin: 0 }}>
                       <figcaption className="small mute">{t}</figcaption>
-                      <LineChart points={pts} width={220} height={100} labels={pts.length ? [month(pts[0].x), pts.length > 2 ? month(pts[Math.floor(pts.length / 2)].x) : '', month(pts[pts.length - 1].x)] : undefined} aria={`${t}: ${pts.map((x) => n(x.y)).join(', ')}`} />
+                      <TrendChart points={pts} unit={k === 'bfp' ? '%' : 'kg'} height={170} band={v && v.min !== undefined && v.max !== undefined ? [v.min, v.max] : null} aria={`${t}: ${pts.map((x) => n(x.y)).join(', ')}`} />
                     </figure>
                   );
                 })}

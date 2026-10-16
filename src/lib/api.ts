@@ -133,3 +133,27 @@ export async function deleteAccountData(store: Store, me: Profile) {
   await store.remove(`users/${me.id}/private`, 'machines');
   await store.remove('users', me.id);
 }
+
+export interface DeleteWhat {
+  workouts: boolean;
+  reports: boolean;
+  routines: boolean;
+  machines: boolean;
+  notes: boolean;
+}
+
+/** El cliente borra parte de su información (sin borrar la cuenta) */
+export async function deleteClientData(store: Store, me: Profile, what: DeleteWhat) {
+  const del = async (col: string, field: string, filter?: (r: Record<string, unknown>) => boolean) => {
+    const rows = await store.query<{ id: string } & Record<string, unknown>>(col, [[field, me.id]]);
+    await Promise.all(rows.filter((r) => !filter || filter(r)).map((r) => store.remove(col, r.id)));
+  };
+  if (what.workouts) {
+    await del('workouts', 'clientId');
+    localStorage.removeItem('gym:active');
+  }
+  if (what.reports) await del('bodyReports', 'clientId');
+  if (what.routines) await del('routines', 'ownerId');
+  if (what.notes) await del('notes', 'clientId');
+  if (what.machines) await store.remove(`users/${me.id}/private`, 'machines');
+}

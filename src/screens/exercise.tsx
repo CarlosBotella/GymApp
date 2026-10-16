@@ -10,6 +10,7 @@ import { IcCamera, IcVideo } from '../ui/icons';
 import { Sec, Stepper, TopBar, toast } from '../ui/kit';
 import { Drawing } from '../ui/drawings';
 import { plateSplit } from './client/workout';
+import { RoleNav } from '../ui/rolenav';
 
 function backTarget(meId: string) {
   return loadLive(meId) ? '/entreno' : '/rutinas';
@@ -31,11 +32,12 @@ export function ExerciseSheet({ id }: { id: string }) {
   useEffect(() => setForm(prefs.settings[id] || {}), [prefs.settings, id]);
   if (!x)
     return (
-      <div className="screen">
+      <div className="screen with-nav">
         <TopBar back={backTarget(me.id)} />
         <div className="main">
           <p className="lead" style={{ marginTop: 20 }}>Este ejercicio no está en el catálogo.</p>
         </div>
+        <RoleNav client="hoy" trainer="ejercicios" />
       </div>
     );
   const inc = { machine: settings.incMachine, dumbbell: settings.incDumbbell };
@@ -50,7 +52,7 @@ export function ExerciseSheet({ id }: { id: string }) {
   };
   const back = backTarget(me.id);
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar back={back} backLabel={back === '/entreno' ? 'Sesión' : 'Rutinas'} />
       <div className="pad">
         <h1 className="h-ex" style={{ marginTop: 2 }}>{x.name}</h1>
@@ -184,6 +186,7 @@ export function ExerciseSheet({ id }: { id: string }) {
           {back === '/entreno' ? 'Volver a la serie' : 'Volver'}
         </a>
       </div>
+      <RoleNav client="hoy" trainer="ejercicios" />
     </div>
   );
 }
@@ -214,7 +217,7 @@ export function MachineScreen({ id }: { id: string }) {
   const savedNote = prefs.notes[id];
   const noteAt = prefs.notes[`${id}__at`];
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar back={back} backLabel={back === '/entreno' ? 'Sesión' : 'Rutinas'} />
       <div className="main">
         <span className="kicker accent" style={{ marginTop: 4 }}>Busca esta máquina</span>
@@ -305,6 +308,7 @@ export function MachineScreen({ id }: { id: string }) {
           </a>
         )}
       </div>
+      <RoleNav client="hoy" trainer="ejercicios" />
     </div>
   );
 }

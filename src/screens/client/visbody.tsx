@@ -8,6 +8,7 @@ import { dateLong, n, time } from '../../lib/util';
 import { CIRC_LABELS, COMPOSITION_LABELS, COMPOSITION_UNITS, POSTURE_LABELS, extractPdf, parseVisbody, type ParsedBody } from '../../lib/visbody';
 import { IcCheck, IcDown, IcFile, IcUp, IcUpload } from '../../ui/icons';
 import { Loading, TopBar, toast } from '../../ui/kit';
+import { RoleNav } from '../../ui/rolenav';
 
 interface Item {
   file: File;
@@ -63,7 +64,7 @@ export function VisbodyImport() {
       setEditDate(false);
     } else {
       toast(items.length > 1 ? 'Informes guardados en tu historial' : 'Informe guardado en tu historial');
-      go('/progreso', true);
+      go('/cuerpo', true);
     }
   };
 
@@ -98,7 +99,7 @@ export function VisbodyImport() {
 
   if (!items.length)
     return (
-      <div className="screen">
+      <div className="screen with-nav">
         <TopBar back="/progreso" backLabel="Progreso" />
         <div className="main">
           <span className="kicker accent" style={{ marginTop: 10 }}>Informe Visbody</span>
@@ -118,12 +119,13 @@ export function VisbodyImport() {
             )}
           </button>
         </div>
+        <RoleNav client="progreso" />
       </div>
     );
 
   if (!cur.parsed || cur.error)
     return (
-      <div className="screen">
+      <div className="screen with-nav">
         <TopBar back="/progreso" backLabel="Progreso" right={<span className="small mute">{idx + 1} de {items.length}</span>} />
         <div className="main">
           <span className="kicker accent" style={{ marginTop: 10 }}>No se ha guardado</span>
@@ -138,6 +140,7 @@ export function VisbodyImport() {
             {idx + 1 < items.length ? 'Siguiente PDF' : 'Volver'}
           </button>
         </div>
+        <RoleNav client="progreso" />
       </div>
     );
 
@@ -162,7 +165,7 @@ export function VisbodyImport() {
   );
 
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar back="/progreso" backLabel="Progreso" right={<span className="small mute" style={{ display: 'flex', gap: 6, alignItems: 'center' }}><IcFile /> {items.length > 1 ? `${idx + 1} de ${items.length} PDFs` : 'Informe Visbody'}</span>} />
       <div className="pad">
         <span className="kicker accent" style={{ display: 'block', marginTop: 6 }}>{needsReview ? 'Necesita tu ojo' : 'Leído · revisa y guarda'}</span>
@@ -281,6 +284,7 @@ export function VisbodyImport() {
           {idx + 1 < items.length ? 'Descartar este PDF' : 'Descartar'}
         </button>
       </div>
+      <RoleNav client="progreso" />
     </div>
   );
 }

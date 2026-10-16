@@ -9,6 +9,7 @@ import type { Profile } from '../../lib/types';
 import { download } from '../../lib/util';
 import { IcCheck } from '../../ui/icons';
 import { Loading, Seg, TopBar, toast } from '../../ui/kit';
+import { RoleNav } from '../../ui/rolenav';
 
 type Fmt = 'pdf' | 'xlsx' | 'csv';
 
@@ -57,7 +58,7 @@ export function Export({ clientId }: { clientId: string }) {
     </label>
   );
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <TopBar back={me.id === clientId ? '/progreso' : `/cliente/${clientId}`} backLabel={me.id === clientId ? 'Progreso' : client?.name || 'Cliente'} />
       <div className="main">
         <h1 className="h1" style={{ marginTop: 4 }}>Exportar</h1>
@@ -92,6 +93,7 @@ export function Export({ clientId }: { clientId: string }) {
           {fmt === 'pdf' ? 'Abrir informe para guardar en PDF' : fmt === 'xlsx' ? 'Descargar Excel' : 'Descargar CSV'}
         </button>
       </div>
+      <RoleNav client="progreso" trainer="clientes" />
     </div>
   );
 }
