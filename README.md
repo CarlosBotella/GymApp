@@ -12,7 +12,7 @@ PWA para entrenar con tu entrenador personal: él asigna la rutina en un toque y
 - **Entreno en vivo**: un botón grande «Serie hecha», descanso con aviso (vibración en Android, pitido y notificación), «¿Cómo fue?» opcional, calculadora de discos, deshacer, pantalla siempre encendida. Si se cierra la app, la sesión se retoma donde la dejaste.
 - **Máquina ocupada**: adelanta el siguiente ejercicio compatible, usa una alternativa aprobada por tu entrenador o espera con contador.
 - **Ficha del ejercicio**: cómo se hace, dibujo del tipo de máquina, tu foto y nota de la máquina (se quedan en el móvil; el gimnasio es una cadena y cada sala es distinta), vídeos de YouTube, ajustes del asiento.
-- **Rutinas**: la del entrenador y las tuyas. Puedes crear y editar las tuyas escribiendo como en tus notas (`prensa 4x10 120`). Las sugerencias del entrenador aparecen como «Sugerido por tu entrenador» y decides tú.
+- **Rutinas**: la del entrenador y las tuyas. Las tuyas se crean y editan de dos maneras, y puedes pasar de una a otra sin perder nada: **ejercicio a ejercicio** (eliges del catálogo y ajustas series, reps y kg con botones) o **como en notas** (`prensa 4x10 120`). También puedes partir de una plantilla. Las sugerencias del entrenador aparecen como «Sugerido por tu entrenador» y decides tú.
 - **Progreso**: constancia, volumen por semana, gráficas de líneas por ejercicio con la línea de progresión lineal y aviso de estancamiento, récords, y evolución corporal (peso, grasa, músculo…) a partir de tus informes **Visbody**.
 - **Visbody**: subes el PDF y saca los datos (composición, postura, perímetros, segmental). Toma la fecha del propio PDF, así que puedes subir informes antiguos y se colocan en su sitio del historial.
 - **Exportar**: Excel, CSV, JSON e informe PDF.
@@ -20,7 +20,7 @@ PWA para entrenar con tu entrenador personal: él asigna la rutina en un toque y
 **Entrenador** (pestañas *Clientes · Rutinas · Ejercicios*)
 
 - **Clientes**: «Decide en un toque» — semana terminada → *Subir peso*; sin rutina → *Asignar*; rutina propia cambiada → *Revisar*; notas y máquinas ocupadas.
-- **Rutinas**: biblioteca que crece con el uso. Asignar es elegir una; escribir una nueva es texto libre que se convierte en ejercicios. Semana siguiente en un toque (subir, repetir, nuevo ciclo, descarga).
+- **Rutinas**: biblioteca que crece con el uso. Asignar es elegir una; crear una nueva se hace ejercicio a ejercicio, como en notas o desde una plantilla. Semana siguiente en un toque (subir, repetir, nuevo ciclo, descarga).
 - **Sugerir cambios** en las rutinas del cliente («Cambiar por»), sin chat.
 - **Ejercicios**: catálogo, alternativas aprobadas y nombres que no se reconocieron.
 - **Informe** de cada cliente, en móvil y en ordenador, imprimible a PDF y exportable.

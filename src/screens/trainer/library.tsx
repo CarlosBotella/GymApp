@@ -71,9 +71,9 @@ export function Library({ forClient }: { forClient: string | null }) {
           <div style={{ marginTop: 40, borderTop: '1px solid var(--ink)', paddingTop: 20 }}>
             <span className="kicker">Tu biblioteca · 0</span>
             <p style={{ marginTop: 12, fontSize: 28, lineHeight: 1.15, fontWeight: 500, letterSpacing: '-0.02em' }}>Todavía no tienes rutinas.</p>
-            <p className="lead" style={{ marginTop: 10, fontSize: 15 }}>Escribe la primera como en tus notas. Se guardará aquí y la próxima vez solo tendrás que elegirla.</p>
+            <p className="lead" style={{ marginTop: 10, fontSize: 15 }}>Créala eligiendo ejercicio a ejercicio o escribiéndola como en tus notas. Se guardará aquí y la próxima vez solo tendrás que elegirla.</p>
             <a className="btn" style={{ marginTop: 18, height: 56 }} href={href(`/escribir${forClient ? `?para=${forClient}` : ''}`)}>
-              Escribir la primera
+              Crear la primera
             </a>
           </div>
           <div className="sec" style={{ marginTop: 36 }}>
@@ -185,7 +185,7 @@ export function Library({ forClient }: { forClient: string | null }) {
           </button>
         ) : null}
         <a className={forClient ? 'txt u' : 'btn'} style={forClient ? { alignSelf: 'center' } : undefined} href={href(`/escribir${forClient ? `?para=${forClient}` : ''}`)}>
-          Escribir una nueva
+          Crear una nueva
         </a>
       </div>
       <TrainerNav active="rutinas" />

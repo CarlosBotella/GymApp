@@ -129,7 +129,7 @@ export function Clients() {
           Asignar rutina
         </a>
         <a className="btn2" style={{ width: 112, height: 60, flex: 'none' }} href={href('/escribir')}>
-          Escribir
+          Crear
         </a>
       </div>
       <TrainerNav active="clientes" />

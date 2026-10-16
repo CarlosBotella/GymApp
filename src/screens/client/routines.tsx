@@ -3,7 +3,6 @@ import { DAY_GROUP_NAMES, ex } from '../../data/catalog';
 import { useApp, useMe } from '../../lib/app';
 import { answerSuggestion } from '../../lib/api';
 import { useClientData } from '../../lib/hooks';
-import { toNotes } from '../../lib/quicknotes';
 import { go, href } from '../../lib/router';
 import { exerciseSeries } from '../../lib/stats';
 import type { Routine, RoutineDay } from '../../lib/types';
@@ -11,7 +10,7 @@ import { DOW_NAME, n, todayLabel, uid } from '../../lib/util';
 import { startWorkout } from '../../lib/workout';
 import { IcChev, IcPlus } from '../../ui/icons';
 import { ClientNav, Loading, Sec, TopBar, WeekStrip, toast } from '../../ui/kit';
-import { NotesEditor, useDraft } from '../shared/notes';
+import { RoutineBuilder, builderDays, initBuilder, type BuilderState } from '../shared/builder';
 
 const DAYS_ES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
@@ -234,7 +233,7 @@ export function RoutineView({ routineId }: { routineId: string }) {
               );
             })}
             <button type="button" className="txt accent" style={{ marginTop: 4 }} onClick={() => startDay(day)}>
-              Empezar {day.name.toLowerCase()}
+              Empezar · {day.name}
             </button>
           </div>
         ))}
@@ -250,13 +249,12 @@ export function RoutineEdit({ routineId }: { routineId: string | null }) {
   const d = useClientData(me.id, me);
   const existing = routineId ? d.mine.find((r) => r.id === routineId) : null;
   const [name, setName] = useState('');
-  const [text, setText] = useState('');
-  const [choices, setChoices] = useState<Record<number, string>>({});
+  const [b, setB] = useState<BuilderState>(() => initBuilder());
   const [loaded, setLoaded] = useState(!routineId);
   useEffect(() => {
     if (loaded || !existing) return;
     setName(existing.name);
-    setText(toNotes(existing.days));
+    setB(initBuilder(existing.days));
     setLoaded(true);
   }, [existing, loaded]);
   const lastWeight = useCallback(
@@ -266,21 +264,21 @@ export function RoutineEdit({ routineId }: { routineId: string | null }) {
     },
     [d.workouts],
   );
-  const draft = useDraft(text, choices, lastWeight, existing?.days);
   if (!d.ready || !loaded) return <Loading />;
   const save = async () => {
-    if (!draft.days.length) return toast('Escribe al menos un ejercicio');
+    const days = builderDays(b, lastWeight, existing?.days);
+    if (!days.length) return toast('Añade al menos un ejercicio');
     const now = Date.now();
     const r: Routine = existing
-      ? { ...existing, name: name.trim() || existing.name, days: draft.days, updatedAt: now }
+      ? { ...existing, name: name.trim() || existing.name, days, updatedAt: now }
       : {
           id: uid(),
           ownerId: me.id,
           ownerRole: 'client',
           clientId: me.id,
           trainerId: me.trainerId || null,
-          name: name.trim() || draft.days[0].name,
-          days: draft.days,
+          name: name.trim() || days[0].name,
+          days,
           template: false,
           week: 1,
           createdAt: now,
@@ -317,7 +315,7 @@ export function RoutineEdit({ routineId }: { routineId: string | null }) {
           <input id="rn" className="input" style={{ fontSize: 24, fontWeight: 500 }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Sábado · Brazos" />
         </div>
         <div style={{ marginTop: 18 }}>
-          <NotesEditor text={text} setText={setText} choices={choices} setChoices={setChoices} lastWeight={lastWeight} prevDays={existing?.days} audience="tu rutina" />
+          <RoutineBuilder state={b} setState={setB} lastWeight={lastWeight} prevDays={existing?.days} audience="tu rutina" />
         </div>
         {me.trainerId && <p className="xs mute" style={{ marginTop: 12 }}>Tu entrenador podrá verla y sugerirte cambios; tú decides si los aceptas.</p>}
       </div>

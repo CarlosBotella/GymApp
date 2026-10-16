@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp, useDoc, useMe } from '../../lib/app';
 import { assignRoutine } from '../../lib/api';
-import { toNotes } from '../../lib/quicknotes';
 import { go } from '../../lib/router';
 import { exerciseSeries } from '../../lib/stats';
 import type { Profile, Routine } from '../../lib/types';
 import { uid } from '../../lib/util';
 import { Loading, TopBar, toast } from '../../ui/kit';
-import { NotesEditor, useDraft } from '../shared/notes';
+import { RoutineBuilder, builderDays, initBuilder, type BuilderState } from '../shared/builder';
 import { useTrainerData } from './data';
 
 export function Write({ forClient, routineId }: { forClient: string | null; routineId: string | null }) {
@@ -17,14 +16,13 @@ export function Write({ forClient, routineId }: { forClient: string | null; rout
   const client = useDoc<Profile>('users', forClient);
   const existing = routineId ? td.routines.find((r) => r.id === routineId && r.ownerId === me.id) : undefined;
   const [name, setName] = useState('');
-  const [text, setText] = useState('');
-  const [choices, setChoices] = useState<Record<number, string>>({});
+  const [b, setB] = useState<BuilderState>(() => initBuilder());
   const [keep, setKeep] = useState(true);
   const [loaded, setLoaded] = useState(!routineId);
   useEffect(() => {
     if (loaded || !existing) return;
     setName(existing.name);
-    setText(toNotes(existing.days));
+    setB(initBuilder(existing.days));
     setLoaded(true);
   }, [existing, loaded]);
   const lastWeight = useCallback(
@@ -35,24 +33,24 @@ export function Write({ forClient, routineId }: { forClient: string | null; rout
     },
     [td.workouts, forClient],
   );
-  const draft = useDraft(text, choices, lastWeight, existing?.days);
   if (!td.ready || client === undefined || (routineId && !loaded && !existing && td.ready)) {
     if (td.ready && routineId && !existing) return <Missing />;
     return <Loading />;
   }
   const save = async () => {
-    if (!draft.days.length) return toast('Escribe al menos un ejercicio');
+    const days = builderDays(b, lastWeight, existing?.days);
+    if (!days.length) return toast('Añade al menos un ejercicio');
     const now = Date.now();
     const base: Routine = existing
-      ? { ...existing, name: name.trim() || existing.name, days: draft.days, updatedAt: now }
+      ? { ...existing, name: name.trim() || existing.name, days, updatedAt: now }
       : {
           id: uid(),
           ownerId: me.id,
           ownerRole: 'trainer',
           clientId: null,
           trainerId: me.id,
-          name: name.trim() || draft.days.map((d) => d.name.split(' · ')[0]).join(' / '),
-          days: draft.days,
+          name: name.trim() || days.map((d) => d.name.split(' · ')[0]).join(' / '),
+          days,
           template: true,
           week: 1,
           createdAt: now,
@@ -100,7 +98,7 @@ export function Write({ forClient, routineId }: { forClient: string | null; rout
         </div>
         {client && <p className="small mute" style={{ marginTop: 6 }}>Para {client.name}</p>}
         <div style={{ marginTop: 16 }}>
-          <NotesEditor text={text} setText={setText} choices={choices} setChoices={setChoices} lastWeight={lastWeight} prevDays={existing?.days} audience={client ? client.name : 'tus clientes'} />
+          <RoutineBuilder state={b} setState={setB} lastWeight={lastWeight} prevDays={existing?.days} audience={client ? client.name : 'tus clientes'} />
         </div>
       </div>
       <div className="bottom">
