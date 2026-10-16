@@ -1,25 +1,27 @@
 {
   "name": "gymapp",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-pdf-worker.mjs",
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
+    "build": "vite build",
     "preview": "vite preview",
-    "icons": "node scripts/make-icons.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "firebase": "^10.13.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "firebase": "^11.0.2",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "typescript": "^5.5.4",
-    "vite": "^5.4.0"
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
   }
 }

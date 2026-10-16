@@ -1,87 +1,127 @@
-export function uid(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+export const DAY = 86400000;
+export const WEEK = 7 * DAY;
+
+export function uid(len = 16): string {
+  const a = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  const r = crypto.getRandomValues(new Uint8Array(len));
+  for (let i = 0; i < len; i++) s += a[r[i] % a.length];
+  return s;
 }
 
-export function shortCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export function code6(): string {
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const r = crypto.getRandomValues(new Uint8Array(6));
   let s = '';
-  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
+  for (let i = 0; i < 6; i++) s += a[r[i] % a.length];
+  return s.slice(0, 3) + '-' + s.slice(3);
+}
+
+const nf1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
+const nf0 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 });
+
+export function n(v: number | null | undefined, dec: 0 | 1 | 2 = 1): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—';
+  return (dec === 0 ? nf0 : dec === 2 ? nf2 : nf1).format(v);
+}
+
+export function signed(v: number, dec: 0 | 1 | 2 = 1): string {
+  const s = n(Math.abs(v), dec);
+  return (v > 0 ? '+' : v < 0 ? '−' : '') + s;
+}
+
+export function tons(kg: number): string {
+  return n(kg / 1000, 1) + ' t';
+}
+
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const DAYS_LONG = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+export const DOW_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+export const DOW_NAME = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+
+export function month(ms: number): string {
+  return MONTHS[new Date(ms).getMonth()];
+}
+
+export function dateShort(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+export function dateLong(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+export function todayLabel(ms = Date.now()): string {
+  const d = new Date(ms);
+  return `${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+export function time(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+export function mmss(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** 0 = lunes … 6 = domingo */
+export function dow(ms: number): number {
+  return (new Date(ms).getDay() + 6) % 7;
+}
+
+export function startOfWeek(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime() - dow(d.getTime()) * DAY;
+}
+
+export function startOfDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+export function norm(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9ñ ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function roundTo(v: number, step: number): number {
+  if (!step) return Math.round(v);
+  return Math.round(v / step) * step;
 }
 
 export function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v));
 }
 
-/** Primer número de un objetivo "8-10" → 8; "30s" → 30; "AMRAP" → null. */
-export function targetNumber(reps: string): number | null {
-  const m = reps.match(/\d+/);
-  return m ? Number(m[0]) : null;
+export function plural(k: number, one: string, many: string): string {
+  return `${n(k, 0)} ${k === 1 ? one : many}`;
 }
 
-export function setsLabel(sets: { reps: string }[]): string {
-  return `${sets.length} ${sets.length === 1 ? 'serie' : 'series'}`;
+export function download(name: string, data: BlobPart, type: string) {
+  const blob = new Blob([data], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 1000);
 }
 
-export function repsLabel(sets: { reps: string }[]): string {
-  return sets.map((s) => s.reps).join('-');
-}
-
-export function fmtKg(n: number | null | undefined): string {
-  if (n == null) return '–';
-  return Number.isInteger(n) ? String(n) : n.toFixed(n * 10 === Math.round(n * 10) ? 1 : 2).replace('.', ',');
-}
-
-export function parseNum(s: string): number | null {
-  const t = s.replace(',', '.').trim();
-  if (!t) return null;
-  const n = Number(t);
-  return Number.isFinite(n) ? n : null;
-}
-
-const DAY = 86400000;
-
-export function daysAgo(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const a = new Date(iso); a.setHours(0, 0, 0, 0);
-  const b = new Date(); b.setHours(0, 0, 0, 0);
-  return Math.round((b.getTime() - a.getTime()) / DAY);
-}
-
-export function relDay(iso: string | null | undefined): string {
-  const d = daysAgo(iso);
-  if (d == null) return 'Nunca';
-  if (d === 0) return 'Hoy';
-  if (d === 1) return 'Ayer';
-  if (d < 7) return `Hace ${d} días`;
-  return new Date(iso!).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-}
-
-export function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-}
-
-export function fmtDuration(ms: number): string {
-  const m = Math.round(ms / 60000);
-  if (m < 60) return `${m} min`;
-  return `${Math.floor(m / 60)} h ${m % 60} min`;
-}
-
-export function fmtClock(sec: number): string {
-  const s = Math.max(0, Math.round(sec));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-
-/** Lunes de la semana de una fecha, a las 00:00. */
-export function weekStart(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  const wd = (x.getDay() + 6) % 7;
-  x.setDate(x.getDate() - wd);
-  return x;
-}
-
-export function cx(...c: (string | false | null | undefined)[]): string {
-  return c.filter(Boolean).join(' ');
+export function cls(...xs: (string | false | null | undefined)[]): string {
+  return xs.filter(Boolean).join(' ');
 }

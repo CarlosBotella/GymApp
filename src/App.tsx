@@ -1,81 +1,142 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppProvider } from './lib/app';
-import { createRepo, type Repo } from './lib/repo';
-import { match, useLocation } from './lib/router';
-import type { Profile } from './lib/types';
-import { Loading, TabBar } from './components/ui';
-import { Auth } from './pages/Auth';
-import { Today } from './pages/client/Today';
-import { DayView } from './pages/client/DayView';
-import { WorkoutLive } from './pages/client/WorkoutLive';
-import { WorkoutDone } from './pages/client/WorkoutDone';
-import { Routines } from './pages/Routines';
-import { RoutineEditor } from './pages/RoutineEditor';
-import { Progress, ExerciseProgress } from './pages/Progress';
-import { Catalog } from './pages/Catalog';
-import { ProfilePage } from './pages/Profile';
-import { Clients } from './pages/trainer/Clients';
-import { ClientDetail } from './pages/trainer/ClientDetail';
+import { useEffect, useState } from 'react';
+import { AppProvider, useApp } from './lib/app';
+import { createStore, savedMode, type Store } from './lib/db';
+import { go, useRoute } from './lib/router';
+import { Loading, ToastHost } from './ui/kit';
+import { CompleteProfile, Install, Join, Login, Signup, Welcome } from './screens/auth';
+import { Today } from './screens/client/today';
+import { LiveWorkout } from './screens/client/workout';
+import { Summary } from './screens/client/summary';
+import { RoutineEdit, RoutineView, Routines } from './screens/client/routines';
+import { Evolution, Progress } from './screens/client/progress';
+import { VisbodyImport } from './screens/client/visbody';
+import { Export } from './screens/client/export';
+import { ExerciseSheet, MachineScreen } from './screens/exercise';
+import { Settings } from './screens/settings';
+import { Clients } from './screens/trainer/clients';
+import { Invite } from './screens/trainer/invite';
+import { Library } from './screens/trainer/library';
+import { Write } from './screens/trainer/write';
+import { Suggest } from './screens/trainer/suggest';
+import { NextWeek } from './screens/trainer/nextweek';
+import { ClientDetail } from './screens/trainer/client';
+import { Exercises } from './screens/trainer/exercises';
+import { Report } from './screens/report';
 
 export function App() {
-  const [repo, setRepo] = useState<Repo | null>(null);
-  const [me, setMe] = useState<Profile | null | undefined>(undefined);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const timer = useRef<number>();
-
+  const [store, setStore] = useState<Store | null>(null);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    let off: (() => void) | undefined;
-    createRepo().then((r) => {
-      setRepo(r);
-      off = r.onAuth(setMe);
-    });
-    return () => off?.();
+    createStore(savedMode())
+      .then(setStore)
+      .catch((e) => {
+        console.error(e);
+        setError('No se ha podido conectar con la base de datos. Prueba el modo demo o revisa la conexión.');
+      });
   }, []);
-
-  const toast = useCallback((msg: string) => {
-    setToastMsg(msg);
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setToastMsg(null), 2800);
-  }, []);
-
-  if (!repo || me === undefined) return <Loading />;
-  if (!me) return <Auth repo={repo} />;
-
+  if (error)
+    return (
+      <div className="screen">
+        <div className="main" style={{ justifyContent: 'center' }}>
+          <p className="lead">{error}</p>
+        </div>
+      </div>
+    );
+  if (!store) return <Loading />;
   return (
-    <AppProvider value={{ repo, me, setMe, toast }}>
-      <Routes role={me.role} />
-      {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
+    <AppProvider store={store}>
+      <Routes />
+      <ToastHost />
     </AppProvider>
   );
 }
 
-function Routes({ role }: { role: Profile['role'] }) {
-  const { path, query } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [path]);
-  let p: Record<string, string> | null;
-  let page: JSX.Element | null = null;
-  let tabs = true;
+const PUBLIC = ['bienvenida', 'entrar', 'registro', 'unirse', 'instalar'];
 
-  if ((p = match('/routine/:clientId/:routineId', path))) { page = <RoutineEditor clientId={p.clientId} routineId={p.routineId} />; tabs = false; }
-  else if ((p = match('/progress/:clientId/:exerciseId', path))) page = <ExerciseProgress clientId={p.clientId} exerciseId={p.exerciseId} />;
-  else if (match('/catalog', path)) page = <Catalog />;
-  else if (match('/profile', path)) page = <ProfilePage />;
-  else if (role === 'trainer') {
-    if ((p = match('/client/:id', path))) page = <ClientDetail clientId={p.id} tab={query.get('tab') ?? 'routine'} />;
-    else page = <Clients />;
-  } else {
-    if ((p = match('/day/:routineId/:dayId', path))) page = <DayView routineId={p.routineId} dayId={p.dayId} />;
-    else if (match('/workout', path)) { page = <WorkoutLive />; tabs = false; }
-    else if ((p = match('/done/:id', path))) { page = <WorkoutDone workoutId={p.id} />; tabs = false; }
-    else if (match('/routines', path)) page = <Routines />;
-    else if (match('/progress', path)) page = <Progress />;
-    else page = <Today />;
+function Routes() {
+  const { auth, authReady, profile, profileReady } = useApp();
+  const r = useRoute();
+  const [a, b] = r.parts;
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (!auth) {
+      if (!PUBLIC.includes(a || '')) go('/bienvenida', true);
+      return;
+    }
+    if (!profileReady) return;
+    if (!profile) {
+      if (a !== 'registro' && a !== 'unirse') go('/registro?paso=perfil', true);
+      return;
+    }
+    if (!a || a === 'bienvenida' || a === 'entrar' || (a === 'registro' && !r.params.get('invite'))) go(profile.role === 'trainer' ? '/clientes' : '/hoy', true);
+  }, [auth, authReady, profile, profileReady, a, r.params]);
+
+  if (!authReady || (auth && !profileReady)) return <Loading />;
+
+  if (!auth || !profile) {
+    if (a === 'entrar') return <Login />;
+    if (a === 'registro') return auth ? <CompleteProfile invite={r.params.get('invite')} /> : <Signup role={(r.params.get('rol') as 'client' | 'trainer') || 'client'} invite={r.params.get('invite')} />;
+    if (a === 'unirse') return auth ? <CompleteProfile invite={b || null} /> : <Signup role="client" invite={b || null} />;
+    if (a === 'instalar') return <Install />;
+    return <Welcome />;
   }
 
-  return (
-    <div className={tabs ? 'with-tabs' : ''}>
-      {page}
-      {tabs && <TabBar role={role} />}
-    </div>
-  );
+  const trainer = profile.role === 'trainer';
+  switch (a) {
+    case 'unirse':
+      return <Join code={b || ''} />;
+    case 'instalar':
+      return <Install />;
+    case 'ajustes':
+      return <Settings />;
+    case 'informe':
+      return <Report clientId={b || profile.id} />;
+    case 'ejercicio':
+      return <ExerciseSheet id={b || ''} />;
+    case 'maquina':
+      return <MachineScreen id={b || ''} />;
+    case 'exportar':
+      return <Export clientId={b || profile.id} />;
+  }
+  if (trainer) {
+    switch (a) {
+      case 'invitar':
+        return <Invite />;
+      case 'biblioteca':
+        return <Library forClient={r.params.get('para')} />;
+      case 'escribir':
+        return <Write forClient={r.params.get('para')} routineId={r.params.get('rutina')} />;
+      case 'sugerir':
+        return <Suggest routineId={b || ''} />;
+      case 'semana':
+        return <NextWeek routineId={b || ''} />;
+      case 'cliente':
+        return <ClientDetail clientId={b || ''} />;
+      case 'ejercicios':
+        return <Exercises />;
+      default:
+        return <Clients />;
+    }
+  }
+  switch (a) {
+    case 'entreno':
+      return <LiveWorkout />;
+    case 'resumen':
+      return <Summary workoutId={b || ''} />;
+    case 'rutinas':
+      return <Routines />;
+    case 'rutina':
+      if (b === 'nueva') return <RoutineEdit routineId={null} />;
+      if (r.parts[2] === 'editar') return <RoutineEdit routineId={b || null} />;
+      return <RoutineView routineId={b || ''} />;
+    case 'progreso':
+      return <Progress />;
+    case 'evolucion':
+      return <Evolution />;
+    case 'visbody':
+      return <VisbodyImport />;
+    default:
+      return <Today />;
+  }
 }

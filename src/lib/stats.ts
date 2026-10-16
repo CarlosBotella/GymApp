@@ -1,150 +1,243 @@
-import type { GroupId, LoggedSet, Workout } from './types';
-import { exerciseGroup, getExercise } from '../data/catalog';
-import { weekStart } from './util';
+import { ex, increment } from '../data/catalog';
+import type { DayGroup, EntryLog, PlanExercise, Routine, RoutineDay, Workout } from './types';
+import { DAY, WEEK, dow, startOfWeek } from './util';
 
-/** 1RM estimado (Epley). Solo con 1-12 reps, más allá no es fiable. */
-export function e1rm(weight: number | null, reps: number | null): number | null {
-  if (!weight || !reps || reps < 1) return null;
-  if (reps === 1) return weight;
-  if (reps > 12) return null;
-  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+export function doneSets(e: EntryLog) {
+  return e.sets.filter((s) => s.done);
 }
 
-export function doneSets(sets: LoggedSet[]): LoggedSet[] {
-  return sets.filter((s) => s.done);
+export function entryVolume(e: EntryLog): number {
+  const x = ex(e.exerciseId);
+  const factor = x?.load === 'dumbbell' && !['sentadilla-goblet'].includes(x.id) ? 2 : 1;
+  return doneSets(e).reduce((a, s) => a + (s.weight || 0) * s.reps * factor, 0);
 }
 
-function byDateDesc(a: Workout, b: Workout) {
-  return b.startedAt.localeCompare(a.startedAt);
+export function workoutVolume(w: Workout): number {
+  return w.entries.reduce((a, e) => a + entryVolume(e), 0);
 }
 
-export function finished(workouts: Workout[]): Workout[] {
-  return workouts.filter((w) => w.finishedAt).sort(byDateDesc);
+export function doneSetCount(w: Workout): number {
+  return w.entries.reduce((a, e) => a + doneSets(e).length, 0);
 }
 
-/** Series de la última vez que se hizo el ejercicio. */
-export function lastPerformance(workouts: Workout[], exerciseId: string, excludeId?: string): { date: string; sets: LoggedSet[] } | null {
-  for (const w of finished(workouts)) {
-    if (w.id === excludeId) continue;
-    const entry = w.entries.find((e) => e.exerciseId === exerciseId && doneSets(e.sets).length > 0);
-    if (entry) return { date: w.startedAt, sets: doneSets(entry.sets) };
+export function plannedSetCount(w: Workout): number {
+  if (w.planned) return w.planned;
+  return w.entries.reduce((a, e) => a + (e.skipped ? 0 : Math.max(e.target.sets, e.sets.length)), 0);
+}
+
+export function bestSet(e: EntryLog): { weight: number; reps: number } | null {
+  let best: { weight: number; reps: number } | null = null;
+  for (const s of doneSets(e)) {
+    const w = s.weight || 0;
+    if (!best || w > best.weight || (w === best.weight && s.reps > best.reps)) best = { weight: w, reps: s.reps };
+  }
+  return best;
+}
+
+export function e1rm(weight: number, reps: number): number {
+  return weight * (1 + reps / 30);
+}
+
+export function finished(ws: Workout[]): Workout[] {
+  return ws.filter((w) => w.status !== 'active').sort((a, b) => a.startedAt - b.startedAt);
+}
+
+/** Serie temporal de la mejor serie por ejercicio (se cuentan también las alternativas usadas en su lugar) */
+export function exerciseSeries(ws: Workout[], exerciseId: string): { at: number; weight: number; reps: number }[] {
+  const out: { at: number; weight: number; reps: number }[] = [];
+  for (const w of finished(ws)) {
+    for (const e of w.entries) {
+      if (e.exerciseId !== exerciseId) continue;
+      const b = bestSet(e);
+      if (b) out.push({ at: w.startedAt, ...b });
+    }
+  }
+  return out;
+}
+
+export function topExercises(ws: Workout[], limit = 5): string[] {
+  const c: Record<string, number> = {};
+  for (const w of finished(ws)) for (const e of w.entries) if (e.exerciseId && doneSets(e).length && ex(e.exerciseId)?.load !== 'bodyweight') c[e.exerciseId] = (c[e.exerciseId] || 0) + 1;
+  return Object.entries(c)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+}
+
+export interface LinearFit {
+  slope: number; // kg por día
+  intercept: number;
+  r2: number;
+}
+
+export function linearFit(pts: { x: number; y: number }[]): LinearFit | null {
+  if (pts.length < 2) return null;
+  const nn = pts.length;
+  const mx = pts.reduce((a, p) => a + p.x, 0) / nn;
+  const my = pts.reduce((a, p) => a + p.y, 0) / nn;
+  let sxy = 0;
+  let sxx = 0;
+  let syy = 0;
+  for (const p of pts) {
+    sxy += (p.x - mx) * (p.y - my);
+    sxx += (p.x - mx) ** 2;
+    syy += (p.y - my) ** 2;
+  }
+  if (!sxx) return { slope: 0, intercept: my, r2: 1 };
+  const slope = sxy / sxx;
+  return { slope, intercept: my - slope * mx, r2: syy ? (sxy * sxy) / (sxx * syy) : 1 };
+}
+
+export type Trend = { kind: 'up' | 'flat' | 'down'; since?: number; perWeek: number; first: number; last: number };
+
+/** Estado de un ejercicio: sube, estancado (≥3 sesiones al mismo peso durante ≥3 semanas) o baja */
+export function trend(series: { at: number; weight: number }[]): Trend | null {
+  if (series.length < 3) return null;
+  const first = series[0].weight;
+  const last = series[series.length - 1].weight;
+  const fit = linearFit(series.map((s) => ({ x: s.at / DAY, y: s.weight })));
+  const perWeek = (fit?.slope || 0) * 7;
+  let i = series.length - 1;
+  while (i > 0 && series[i - 1].weight === last) i--;
+  const runStart = series[i];
+  const runLen = series.length - i;
+  if (runLen >= 3 && Date.now() - runStart.at >= 3 * WEEK) return { kind: 'flat', since: runStart.at, perWeek, first, last };
+  if (last < first) return { kind: 'down', perWeek, first, last };
+  return { kind: 'up', perWeek, first, last };
+}
+
+export interface LearnedWeek {
+  weeks: number;
+  days: { group: DayGroup | null; count: number }[];
+  ready: boolean;
+}
+
+/** Aprende qué grupo entrena cada día de la semana a partir de las últimas 8 semanas */
+export function learnWeek(ws: Workout[]): LearnedWeek {
+  const fin = finished(ws).filter((w) => w.startedAt > Date.now() - 8 * WEEK);
+  const weeks = new Set(fin.map((w) => startOfWeek(w.startedAt))).size;
+  const per: Record<number, Record<string, number>> = {};
+  for (const w of fin) {
+    const d = dow(w.startedAt);
+    per[d] ||= {};
+    per[d][w.group] = (per[d][w.group] || 0) + 1;
+  }
+  const days = Array.from({ length: 7 }, (_, d) => {
+    const c = per[d] || {};
+    const top = Object.entries(c).sort((a, b) => b[1] - a[1])[0];
+    if (!top || top[1] < 2) return { group: null, count: 0 };
+    return { group: top[0] as DayGroup, count: top[1] };
+  });
+  return { weeks, days, ready: weeks >= 3 && days.some((d) => d.group) };
+}
+
+/** Día de la rutina que toca hoy */
+export function nextDay(r: Routine | null | undefined, ws: Workout[], learned: LearnedWeek): RoutineDay | null {
+  if (!r || !r.days.length) return null;
+  const weekStart = startOfWeek(Date.now());
+  const doneThisWeek = new Set(finished(ws).filter((w) => w.routineId === r.id && w.startedAt >= weekStart).map((w) => w.dayId));
+  const today = learned.days[dow(Date.now())];
+  if (learned.ready && today.group) {
+    const m = r.days.find((d) => d.group === today.group && !doneThisWeek.has(d.id));
+    if (m) return m;
+  }
+  const last = finished(ws).filter((w) => w.routineId === r.id).pop();
+  if (!last) return r.days[0];
+  const idx = r.days.findIndex((d) => d.id === last.dayId);
+  return r.days[(idx + 1) % r.days.length];
+}
+
+export function lastEntryFor(ws: Workout[], plan: PlanExercise, dayId?: string | null): EntryLog | null {
+  const fin = finished(ws);
+  for (let i = fin.length - 1; i >= 0; i--) {
+    const w = fin[i];
+    if (dayId && w.dayId !== dayId) continue;
+    const e = w.entries.find((x) => x.planId === plan.id && !x.skipped) || w.entries.find((x) => x.exerciseId === plan.exerciseId && !x.skipped && !x.substituteOf);
+    if (e && doneSets(e).length) return e;
   }
   return null;
 }
 
-export interface Session {
-  workoutId: string;
-  date: string;
-  sets: LoggedSet[];
-  topWeight: number | null;
-  bestE1rm: number | null;
-  volume: number;
-  totalReps: number;
+export interface Progression {
+  plan: PlanExercise;
+  from: { weight: number | null; reps: number };
+  to: { weight: number | null; reps: number };
+  change: 'up-weight' | 'up-reps' | 'keep';
+  reason: string;
 }
 
-/** Historial de un ejercicio, del más antiguo al más reciente. */
-export function exerciseHistory(workouts: Workout[], exerciseId: string): Session[] {
-  const out: Session[] = [];
-  for (const w of finished(workouts).reverse()) {
-    const sets = w.entries.filter((e) => e.exerciseId === exerciseId).flatMap((e) => doneSets(e.sets));
-    if (!sets.length) continue;
-    let top: number | null = null;
-    let best: number | null = null;
-    let volume = 0;
-    let totalReps = 0;
-    for (const s of sets) {
-      if (s.weight != null && (top == null || s.weight > top)) top = s.weight;
-      const est = e1rm(s.weight, s.reps);
-      if (est != null && (best == null || est > best)) best = est;
-      volume += (s.weight ?? 0) * (s.reps ?? 0);
-      totalReps += s.reps ?? 0;
-    }
-    out.push({ workoutId: w.id, date: w.startedAt, sets, topWeight: top, bestE1rm: best, volume, totalReps });
+/** Regla de progresión: sube si hizo todas las reps sin marcar «Duro» */
+export function progress(plan: PlanExercise, last: EntryLog | null, inc: { machine: number; dumbbell: number }): Progression {
+  const x = ex(plan.exerciseId);
+  const from = { weight: plan.weight, reps: plan.reps };
+  if (!last) return { plan, from, to: from, change: 'keep', reason: 'Sin datos de la última vez' };
+  const done = doneSets(last);
+  const allReps = done.length >= plan.sets && done.slice(0, plan.sets).every((s) => s.reps >= plan.reps);
+  const hard = done.some((s) => s.feel === 'hard');
+  const easy = done.length > 0 && done.every((s) => s.feel === 'easy');
+  if (hard) return { plan, from, to: from, change: 'keep', reason: 'Marcó «Duro»' };
+  if (!allReps) return { plan, from, to: from, change: 'keep', reason: 'No completó todas las reps' };
+  const step = increment(x, inc);
+  if (!x || x.load === 'bodyweight' || x.load === 'dumbbell' || plan.weight === null) {
+    return { plan, from, to: { weight: plan.weight, reps: plan.reps + 1 }, change: 'up-reps', reason: easy ? 'Todas las reps, «Fácil»' : 'Todas las reps' };
+  }
+  return { plan, from, to: { weight: (plan.weight || 0) + step, reps: plan.reps }, change: 'up-weight', reason: easy ? 'Todas las reps, «Fácil»' : 'Todas las reps, «Justo»' };
+}
+
+export function feelShare(ws: Workout[]): { easy: number; ok: number; hard: number; total: number } {
+  let easy = 0;
+  let ok = 0;
+  let hard = 0;
+  for (const w of finished(ws)) for (const e of w.entries) for (const s of doneSets(e)) {
+    if (s.feel === 'easy') easy++;
+    else if (s.feel === 'hard') hard++;
+    else if (s.feel === 'ok') ok++;
+  }
+  return { easy, ok, hard, total: easy + ok + hard };
+}
+
+export function weeklyVolume(ws: Workout[], weeks: number): { start: number; volume: number }[] {
+  const now = startOfWeek(Date.now());
+  const out = Array.from({ length: weeks }, (_, i) => ({ start: now - (weeks - 1 - i) * WEEK, volume: 0 }));
+  for (const w of finished(ws)) {
+    const s = startOfWeek(w.startedAt);
+    const b = out.find((o) => o.start === s);
+    if (b) b.volume += workoutVolume(w);
   }
   return out;
 }
 
-export interface PR {
-  exerciseId: string;
-  kind: 'peso' | '1RM';
-  value: number;
-  previous: number | null;
-}
-
-/** Récords batidos en un entreno comparado con todos los anteriores. */
-export function prsInWorkout(workout: Workout, all: Workout[]): PR[] {
-  const before = finished(all).filter((w) => w.id !== workout.id && w.startedAt < workout.startedAt);
-  const prs: PR[] = [];
-  const seen = new Set<string>();
-  for (const entry of workout.entries) {
-    if (seen.has(entry.exerciseId)) continue;
-    seen.add(entry.exerciseId);
-    if (getExercise(entry.exerciseId).logType !== 'weight_reps') continue;
-    const sets = workout.entries.filter((e) => e.exerciseId === entry.exerciseId).flatMap((e) => doneSets(e.sets));
-    if (!sets.length) continue;
-    const hist = exerciseHistory(before, entry.exerciseId);
-    if (!hist.length) continue; // primera vez: no es récord, es el punto de partida
-    const prevTop = Math.max(...hist.map((h) => h.topWeight ?? 0));
-    const prevE = Math.max(...hist.map((h) => h.bestE1rm ?? 0));
-    const top = Math.max(...sets.map((s) => s.weight ?? 0));
-    const best = Math.max(...sets.map((s) => e1rm(s.weight, s.reps) ?? 0));
-    if (top > prevTop && top > 0) prs.push({ exerciseId: entry.exerciseId, kind: 'peso', value: top, previous: prevTop || null });
-    else if (best > prevE && best > 0) prs.push({ exerciseId: entry.exerciseId, kind: '1RM', value: best, previous: prevE || null });
-  }
-  return prs;
-}
-
-export function workoutTotals(w: Workout) {
-  let sets = 0;
-  let volume = 0;
-  for (const e of w.entries) {
-    for (const s of doneSets(e.sets)) {
-      sets++;
-      volume += (s.weight ?? 0) * (s.reps ?? 0);
+/** Récords: sesiones en las que un ejercicio superó su mejor peso anterior */
+export function records(ws: Workout[], since: number): { at: number; exerciseId: string; weight: number; reps: number }[] {
+  const best: Record<string, number> = {};
+  const out: { at: number; exerciseId: string; weight: number; reps: number }[] = [];
+  for (const w of finished(ws)) {
+    for (const e of w.entries) {
+      if (!e.exerciseId) continue;
+      const b = bestSet(e);
+      if (!b || !b.weight) continue;
+      const prev = best[e.exerciseId];
+      if (prev !== undefined && b.weight > prev && w.startedAt >= since) out.push({ at: w.startedAt, exerciseId: e.exerciseId, ...b });
+      if (prev === undefined || b.weight > prev) best[e.exerciseId] = b.weight;
     }
-  }
-  const ms = w.finishedAt ? new Date(w.finishedAt).getTime() - new Date(w.startedAt).getTime() : Date.now() - new Date(w.startedAt).getTime();
-  return { sets, volume: Math.round(volume), ms };
-}
-
-/** Series efectivas por grupo muscular en la semana de `ref`. */
-export function weeklySetsByGroup(workouts: Workout[], ref = new Date()): Record<GroupId, number> {
-  const start = weekStart(ref).getTime();
-  const end = start + 7 * 86400000;
-  const out = { pierna: 0, pecho: 0, espalda: 0, hombro: 0, brazos: 0, core: 0, cardio: 0 } as Record<GroupId, number>;
-  for (const w of finished(workouts)) {
-    const t = new Date(w.startedAt).getTime();
-    if (t < start || t >= end) continue;
-    for (const e of w.entries) out[exerciseGroup(e.exerciseId)] += doneSets(e.sets).length;
   }
   return out;
 }
 
-/** Días entrenados (yyyy-mm-dd) para el calendario de constancia. */
-export function trainedDays(workouts: Workout[]): Set<string> {
-  return new Set(finished(workouts).map((w) => dayKey(new Date(w.startedAt))));
+export function periodStart(p: string): number {
+  const now = Date.now();
+  if (p === '4s') return now - 4 * WEEK;
+  if (p === '6m') return now - 26 * WEEK;
+  if (p === 'ano') return now - 52 * WEEK;
+  if (p === 'todo') return 0;
+  return now - 13 * WEEK;
 }
 
-export function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-export function streakWeeks(workouts: Workout[]): number {
-  const days = finished(workouts).map((w) => weekStart(new Date(w.startedAt)).getTime());
-  const weeks = new Set(days);
-  let n = 0;
-  let cur = weekStart(new Date());
-  if (!weeks.has(cur.getTime())) cur = new Date(cur.getTime() - 7 * 86400000);
-  while (weeks.has(cur.getTime())) {
-    n++;
-    cur = new Date(cur.getTime() - 7 * 86400000);
-  }
-  return n;
-}
-
-/** Peso sugerido: si la última vez completó todas las reps objetivo, +2,5 kg. */
-export function suggestWeight(last: LoggedSet | undefined, targetReps: number | null): number | null {
-  if (!last || last.weight == null) return null;
-  if (targetReps != null && last.reps != null && last.reps >= targetReps + 2) return last.weight + 2.5;
-  return last.weight;
+export function constancy(ws: Workout[], since: number, perWeek: number): { done: number; expected: number; pct: number } {
+  const fin = finished(ws).filter((w) => w.startedAt >= since && w.status === 'done');
+  const first = finished(ws)[0]?.startedAt || Date.now();
+  const from = Math.max(since, startOfWeek(first));
+  const weeks = Math.max(1, Math.round((Date.now() - from) / WEEK));
+  const expected = Math.max(fin.length, weeks * Math.max(1, perWeek));
+  return { done: fin.length, expected, pct: expected ? Math.round((fin.length / expected) * 100) : 0 };
 }

@@ -1,12 +1,16 @@
 rules_version = '2';
 
 // Reglas de seguridad de GymApp.
-// Cópialas en Firebase › Firestore Database › Reglas y pulsa "Publicar".
+// Cópialas en Firebase › Firestore Database › Reglas y pulsa «Publicar»
+// (o despliega con `firebase deploy --only firestore:rules`).
 //
-// - Cada cliente ve y edita solo lo suyo.
-// - El entrenador ve los perfiles, rutinas y entrenos de los clientes vinculados a él,
-//   les crea/edita rutinas y puede comentar sus entrenos.
-// - Un cliente no puede tocar el contenido de una rutina puesta por el entrenador.
+// - Cada cliente lee y escribe solo lo suyo.
+// - El entrenador lee los perfiles, rutinas, entrenos y notas de sus clientes.
+// - Las rutinas creadas por el cliente solo las edita el cliente: el entrenador
+//   propone cambios con documentos de «suggestions».
+// - Los datos de cuerpo (Visbody) solo los ve el entrenador si el cliente los
+//   comparte: la app escribe trainerId en el informe solo en ese caso.
+// - users/{uid}/private (ajustes y notas de máquinas) es solo del propio usuario.
 
 service cloud.firestore {
   match /databases/{db}/documents {
@@ -14,90 +18,107 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
     function userPath(id) { return /databases/$(db)/documents/users/$(id); }
-    function user(id) { return get(userPath(id)).data; }
-    function userAfter(id) { return getAfter(userPath(id)).data; }
+    function profile(id) { return get(userPath(id)).data; }
+    function myTrainer() { return exists(userPath(me())) ? profile(me()).get('trainerId', null) : null; }
     function isTrainerOf(clientId) {
-      return exists(userPath(clientId)) && user(clientId).trainerId == me();
+      return exists(userPath(clientId)) && profile(clientId).get('trainerId', null) == me();
     }
     function changedOnly(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
 
     match /users/{uid} {
-      allow read: if signedIn() && (
+      allow get: if signedIn() && (
         uid == me()
-        || resource.data.trainerId == me()
-        || (resource.data.role == 'trainer' && user(me()).trainerId == uid)
+        || resource.data.get('trainerId', null) == me()
+        || uid == myTrainer()
       );
+      // el entrenador lista a sus clientes: where('trainerId', '==', uid)
+      allow list: if signedIn() && resource.data.trainerId == me();
       allow create: if signedIn() && uid == me()
-        && request.resource.data.role in ['trainer', 'client']
-        && request.resource.data.trainerId == null;
+        && request.resource.data.role in ['client', 'trainer'];
       allow update: if signedIn() && uid == me()
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.code == resource.data.code
-        && (
-          request.resource.data.trainerId == null
-          || request.resource.data.trainerId == resource.data.trainerId
-          || user(request.resource.data.trainerId).role == 'trainer'
-        );
-      allow delete: if false;
+        && request.resource.data.role == resource.data.role;
+      allow delete: if signedIn() && uid == me();
+
+      match /private/{docId} {
+        allow read, write: if signedIn() && uid == me();
+      }
     }
 
-    match /trainerCodes/{code} {
+    match /invites/{code} {
       allow get: if signedIn();
-      allow list: if false;
-      allow create: if signedIn()
-        && request.resource.data.trainerId == me()
-        && userAfter(me()).role == 'trainer'
-        && userAfter(me()).code == code;
-      allow update, delete: if false;
-    }
-
-    // trainerId del documento = entrenador actual del cliente (o null).
-    function validOwner(d) {
-      return (d.clientId == me() && d.trainerId == userAfter(me()).trainerId)
-        || (d.trainerId == me() && isTrainerOf(d.clientId));
+      allow list: if signedIn() && resource.data.trainerId == me();
+      allow create: if signedIn() && request.resource.data.trainerId == me();
+      allow update: if signedIn() && (
+        resource.data.trainerId == me()
+        || (resource.data.get('usedBy', null) == null
+            && request.resource.data.usedBy == me()
+            && changedOnly(['usedBy']))
+      );
+      allow delete: if signedIn() && resource.data.trainerId == me();
     }
 
     match /routines/{id} {
-      allow read: if signedIn() && (resource.data.clientId == me() || resource.data.trainerId == me());
-      allow create: if signedIn()
-        && request.resource.data.authorId == me()
-        && validOwner(request.resource.data)
-        && (
-          (request.resource.data.authorRole == 'client' && request.resource.data.clientId == me())
-          || (request.resource.data.authorRole == 'trainer' && isTrainerOf(request.resource.data.clientId))
-        );
-      allow update: if signedIn()
-        && request.resource.data.clientId == resource.data.clientId
-        && request.resource.data.authorId == resource.data.authorId
-        && request.resource.data.authorRole == resource.data.authorRole
-        && validOwner(request.resource.data)
-        && (
-          isTrainerOf(resource.data.clientId)
-          || (resource.data.clientId == me() && (
-                resource.data.authorRole == 'client'
-                || changedOnly(['trainerId', 'active', 'updatedAt'])
-             ))
-        );
-      allow delete: if signedIn() && (
-        isTrainerOf(resource.data.clientId)
-        || (resource.data.clientId == me() && resource.data.authorRole == 'client')
+      allow read: if signedIn() && (
+        resource.data.ownerId == me()
+        || resource.data.get('clientId', null) == me()
+        || resource.data.get('trainerId', null) == me()
       );
+      allow create: if signedIn() && request.resource.data.ownerId == me()
+        && (request.resource.data.get('clientId', null) == null
+            || request.resource.data.clientId == me()
+            || isTrainerOf(request.resource.data.clientId));
+      allow update: if signedIn() && resource.data.ownerId == me()
+        && request.resource.data.ownerId == me();
+      allow delete: if signedIn() && resource.data.ownerId == me();
     }
 
     match /workouts/{id} {
-      allow read: if signedIn() && (resource.data.clientId == me() || resource.data.trainerId == me());
-      allow create: if signedIn()
-        && request.resource.data.clientId == me()
-        && request.resource.data.trainerId == userAfter(me()).trainerId;
+      allow read: if signedIn() && (
+        resource.data.clientId == me()
+        || resource.data.get('trainerId', null) == me()
+      );
+      allow create: if signedIn() && request.resource.data.clientId == me();
+      allow update: if signedIn() && resource.data.clientId == me()
+        && request.resource.data.clientId == me();
+      allow delete: if signedIn() && resource.data.clientId == me();
+    }
+
+    match /suggestions/{id} {
+      allow read: if signedIn() && (
+        resource.data.clientId == me() || resource.data.trainerId == me()
+      );
+      allow create: if signedIn() && request.resource.data.trainerId == me()
+        && isTrainerOf(request.resource.data.clientId);
       allow update: if signedIn() && (
-        (resource.data.clientId == me()
-          && request.resource.data.clientId == me()
-          && request.resource.data.trainerId == userAfter(me()).trainerId)
-        || (resource.data.trainerId == me()
-          && isTrainerOf(resource.data.clientId)
-          && changedOnly(['trainerComment']))
+        resource.data.trainerId == me()
+        || (resource.data.clientId == me() && changedOnly(['status', 'answeredAt']))
+      );
+      allow delete: if signedIn() && (
+        resource.data.trainerId == me() || resource.data.clientId == me()
+      );
+    }
+
+    match /bodyReports/{id} {
+      allow read: if signedIn() && (
+        resource.data.clientId == me()
+        || resource.data.get('trainerId', null) == me()
+      );
+      allow create: if signedIn() && request.resource.data.clientId == me();
+      allow update: if signedIn() && resource.data.clientId == me()
+        && request.resource.data.clientId == me();
+      allow delete: if signedIn() && resource.data.clientId == me();
+    }
+
+    match /notes/{id} {
+      allow read: if signedIn() && (
+        resource.data.clientId == me() || resource.data.trainerId == me()
+      );
+      allow create: if signedIn() && request.resource.data.clientId == me();
+      allow update: if signedIn() && (
+        (resource.data.trainerId == me() && changedOnly(['seen']))
+        || resource.data.clientId == me()
       );
       allow delete: if signedIn() && resource.data.clientId == me();
     }

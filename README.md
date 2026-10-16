@@ -1,79 +1,70 @@
 # GymApp
 
-PWA para entrenadores y clientes de gimnasio. El entrenador pone rutinas; el cliente las sigue, registra pesos y repeticiones y ve su progreso. Si el cliente no tiene rutina del entrenador, se monta la suya. Al elegir ejercicios, la app solo enseña los de la parte del cuerpo que toca ese día, con las máquinas reales de On Air (Hammer Strength, gym80, Technogym…).
+PWA para entrenar con tu entrenador personal: él asigna la rutina en un toque y tú entrenas sin fricción desde el móvil. Funciona sin conexión y se instala en la pantalla de inicio.
 
-Todo es gratis: GitHub Pages para la web y Firebase en el plan Spark para cuentas y datos.
+**Web:** https://carlosbotella.github.io/GymApp/
 
 ## Qué hace
 
-**Cliente**
-- Hoy: su rutina de la semana, el día que le toca y un botón para continuar un entreno a medias.
-- Entreno en vivo: series precargadas con lo que hizo la última vez, ✓ para marcar cada serie, descanso automático con vibración y pitido, calculadora de discos, cambiar una máquina ocupada por otra del mismo músculo, ajustes de máquina guardados ("asiento en 4") y pantalla siempre encendida.
-- Entreno libre: elige pierna, pecho, etc. y solo salen esos ejercicios.
-- Rutinas propias cuando el entrenador no le ha puesto ninguna.
-- Progreso: calendario de constancia, series por grupo muscular esta semana, gráfica por ejercicio (peso máximo, 1RM estimado, volumen), récords e historial con los comentarios del entrenador.
+**Cliente** (pestañas *Hoy · Rutina · Progreso*)
 
-**Entrenador**
-- Lista de clientes ordenada por quién necesita algo: sin rutina, días sin entrenar, notas sin responder, récords recientes.
-- Crear y editar rutinas por días (en blanco, desde plantilla o copiando la de otro cliente).
-- Ver entrenos y progreso de cada cliente y comentar cada sesión.
-- Código de 6 letras que el cliente escribe para vincularse.
+- **Hoy**: el día que toca, con los pesos ya calculados (sube cuando completaste todas las reps sin marcar «Duro»: +2,5 kg en máquina/barra, +1 rep en mancuernas). «Hoy prefiero otro día» si te apetece cambiar.
+- **Entreno en vivo**: un botón grande «Serie hecha», descanso con aviso (vibración en Android, pitido y notificación), «¿Cómo fue?» opcional, calculadora de discos, deshacer, pantalla siempre encendida. Si se cierra la app, la sesión se retoma donde la dejaste.
+- **Máquina ocupada**: adelanta el siguiente ejercicio compatible, usa una alternativa aprobada por tu entrenador o espera con contador.
+- **Ficha del ejercicio**: cómo se hace, dibujo del tipo de máquina, tu foto y nota de la máquina (se quedan en el móvil; el gimnasio es una cadena y cada sala es distinta), vídeos de YouTube, ajustes del asiento.
+- **Rutinas**: la del entrenador y las tuyas. Puedes crear y editar las tuyas escribiendo como en tus notas (`prensa 4x10 120`). Las sugerencias del entrenador aparecen como «Sugerido por tu entrenador» y decides tú.
+- **Progreso**: constancia, volumen por semana, gráficas de líneas por ejercicio con la línea de progresión lineal y aviso de estancamiento, récords, y evolución corporal (peso, grasa, músculo…) a partir de tus informes **Visbody**.
+- **Visbody**: subes el PDF y saca los datos (composición, postura, perímetros, segmental). Toma la fecha del propio PDF, así que puedes subir informes antiguos y se colocan en su sitio del historial.
+- **Exportar**: Excel, CSV, JSON e informe PDF.
 
-**Modo demo**: botón "Probar sin cuenta" en la pantalla de entrada. Trae un entrenador (Ángel) y dos clientes (Carlos con tres semanas de historial y Lucía sin rutina). Los datos se quedan en ese móvil.
+**Entrenador** (pestañas *Clientes · Rutinas · Ejercicios*)
 
-## Puesta en marcha de Firebase (una sola vez)
+- **Clientes**: «Decide en un toque» — semana terminada → *Subir peso*; sin rutina → *Asignar*; rutina propia cambiada → *Revisar*; notas y máquinas ocupadas.
+- **Rutinas**: biblioteca que crece con el uso. Asignar es elegir una; escribir una nueva es texto libre que se convierte en ejercicios. Semana siguiente en un toque (subir, repetir, nuevo ciclo, descarga).
+- **Sugerir cambios** en las rutinas del cliente («Cambiar por»), sin chat.
+- **Ejercicios**: catálogo, alternativas aprobadas y nombres que no se reconocieron.
+- **Informe** de cada cliente, en móvil y en ordenador, imprimible a PDF y exportable.
+- La app aprende qué grupo muscular hace cada cliente cada día de la semana y lo propone.
 
-La configuración web ya está en `src/firebaseConfig.ts`. Falta activar dos cosas en la [consola de Firebase](https://console.firebase.google.com/project/gymapp-cc19c):
+Hay un **modo demo** («Probar sin cuenta» en la pantalla de inicio) con datos de ejemplo como cliente o como entrenador; todo se guarda solo en el navegador.
 
-1. **Authentication › Sign-in method** → activa **Correo electrónico/contraseña**.
-2. **Firestore Database** → **Crear base de datos** (modo producción, región `eur3` o `europe-southwest1`).
-3. **Firestore Database › Reglas** → pega el contenido de [`firestore.rules`](firestore.rules) y pulsa **Publicar**. Sin este paso nadie puede leer ni escribir.
-4. **Authentication › Settings › Dominios autorizados** → añade `carlosbotella.github.io`.
+## Puesta en marcha de Firebase (una vez)
 
-No hace falta el plan Blaze ni Cloud Functions.
+En la consola de Firebase, proyecto `gymapp-cc19c`:
 
-## Publicar en GitHub Pages
+1. **Authentication → Sign-in method**: activa *Correo electrónico/contraseña* y *Google*.
+2. **Authentication → Settings → Authorized domains**: añade `carlosbotella.github.io`.
+3. **Firestore Database**: créala (modo producción, la región que quieras).
+4. **Firestore → Reglas**: pega el contenido de [`firestore.rules`](firestore.rules) y publica. O con la CLI: `firebase deploy --only firestore:rules`.
 
-Cada push a `main` compila y publica la web con GitHub Actions. La primera vez, en el repo ve a **Settings › Pages** y en *Source* elige **GitHub Actions**. Quedará en `https://carlosbotella.github.io/gymapp/`.
+No hace falta Storage (plan Blaze): los PDF originales y las fotos de máquinas se guardan en el propio móvil (IndexedDB); en la nube solo van los datos.
 
-En el iPhone: ábrela en Safari, Compartir → **Añadir a pantalla de inicio**.
+## Publicación
+
+Cada push a `main` se publica en GitHub Pages con el workflow `.github/workflows/deploy.yml`. En *Settings → Pages* la fuente debe ser **GitHub Actions**.
 
 ## Desarrollo
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm run build      # comprueba tipos y genera dist/
+npm run build      # genera dist/
+npm run typecheck
 ```
 
-## Estructura
+Vite + React 19 + TypeScript, Firebase (Auth + Firestore con caché offline), pdf.js para leer el Visbody. Sin librerías de UI ni de gráficas.
 
 ```
 src/
-  data/catalog.ts     máquinas, ejercicios y grupos musculares (edítalo para añadir máquinas)
-  data/seed.ts        plantilla de 6 días sacada de las rutinas reales
-  lib/repo/           acceso a datos: firebase.ts (real) y demo.ts (localStorage)
-  lib/stats.ts        1RM, récords, volumen, constancia
-  lib/workout.ts      entreno en curso (se guarda en el móvil hasta terminar)
-  pages/              pantallas de cliente, entrenador y comunes
-firestore.rules       reglas de seguridad
-public/sw.js          service worker (funciona sin cobertura)
+  lib/        datos (Firebase / demo local), progresión, estadísticas, Visbody, exportar, avisos
+  data/       catálogo de ejercicios y plantillas de rutinas
+  screens/    pantallas de cliente, entrenador y compartidas
+  ui/         kit de componentes, iconos, gráficas, dibujos de máquinas
 ```
 
-### Datos en Firestore
+## Limitaciones conocidas
 
-| Colección | Contenido |
-|---|---|
-| `users/{uid}` | nombre, rol, entrenador, centro, código, ajustes de máquina |
-| `trainerCodes/{código}` | `{ trainerId }` para vincularse |
-| `routines/{id}` | rutina con sus días y ejercicios |
-| `workouts/{id}` | entreno con todas sus series |
-
-Rutinas y entrenos llevan `trainerId` copiado para que las reglas dejen al entrenador leerlos sin consultas extra.
-
-## Ideas para lo siguiente
-
-- Fotos o vídeos de cada máquina en el catálogo.
-- QR pegado en cada máquina que abra ese ejercicio.
-- Notificaciones push (con Firebase Cloud Messaging, gratuito) cuando el entrenador cambia la rutina.
-- Mesociclos con semana de descarga.
+- El lector de Visbody está hecho para el informe en español (3 páginas). Si algo no se lee, se marca y se puede corregir a mano antes de guardar.
+- En iPhone no hay vibración desde la web; el aviso de descanso es pitido y, con la app instalada, notificación.
+- Las invitaciones son por código o enlace (WhatsApp), sin QR.
+- Los vídeos de ejercicios abren una búsqueda en YouTube en vez de vídeos propios.

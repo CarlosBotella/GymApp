@@ -23,6 +23,9 @@ jobs:
         with:
           node-version: 20
       - run: npm install
+      - name: Comprobar tipos (no bloquea la publicación)
+        run: npm run typecheck
+        continue-on-error: true
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/

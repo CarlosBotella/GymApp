@@ -1,132 +1,189 @@
-export type Role = 'trainer' | 'client';
-export type CenterId = 'ruzafa' | 'lesarts';
+export type Role = 'client' | 'trainer';
 
-export type MuscleId =
-  | 'cuadriceps' | 'femoral' | 'gluteo' | 'aductor' | 'abductor' | 'gemelo'
-  | 'pecho'
-  | 'dorsal' | 'espalda_media' | 'lumbar'
-  | 'hombro_anterior' | 'hombro_lateral' | 'hombro_posterior' | 'trapecio'
-  | 'biceps' | 'triceps' | 'antebrazo'
-  | 'abdomen'
-  | 'cardio';
-
-export type GroupId = 'pierna' | 'pecho' | 'espalda' | 'hombro' | 'brazos' | 'core' | 'cardio';
-
-export type EquipmentKind =
-  | 'plate_loaded'   // palanca con discos (Hammer Strength)
-  | 'selectorized'   // máquina de placas con pin
-  | 'cable'          // poleas
-  | 'smith'
-  | 'free_weight'    // mancuernas, barra
-  | 'bench'
-  | 'bodyweight'
-  | 'cardio';
-
-/** Cómo se registra cada serie. */
-export type LogType = 'weight_reps' | 'reps' | 'time' | 'cardio';
-
-export interface Equipment {
-  id: string;
-  name: string;
-  brand?: string;
-  model?: string;
-  kind: EquipmentKind;
-  centers: CenterId[];
-  /** Peso propio de la palanca / trineo (kg), para la calculadora de discos. */
-  baseWeight?: number;
-}
+export type GroupId = 'pierna' | 'pecho' | 'espalda' | 'hombro' | 'brazos' | 'core';
+export type DayGroup = 'pierna' | 'torso' | 'empuje' | 'tiron' | 'brazos' | 'hombro' | 'pecho' | 'espalda' | 'fullbody' | 'core';
+export type Load = 'plates' | 'stack' | 'barbell' | 'dumbbell' | 'bodyweight';
+export type Feel = 'easy' | 'ok' | 'hard';
 
 export interface Exercise {
   id: string;
   name: string;
-  primary: MuscleId;
-  secondary: MuscleId[];
-  equipmentId: string;
-  logType: LogType;
-  unilateral?: boolean;
-  /** Ejercicio creado por un usuario (no viene del catálogo). */
-  custom?: boolean;
+  aliases: string[];
+  group: GroupId;
+  muscles: string;
+  equipment: string;
+  load: Load;
+  /** peso de trabajo típico de un intermedio, para calcular equivalencias entre alternativas */
+  ref: number;
+  alts: string[];
+  steps: [string, string, string];
+  look?: [string, string, string];
+  kind: 'press45' | 'machine' | 'cable' | 'barbell' | 'dumbbell' | 'bodyweight' | 'bench';
+}
+
+export interface Settings {
+  restSec: number;
+  alert: 'both' | 'vibrate' | 'sound' | 'none';
+  incMachine: number;
+  incDumbbell: number;
+  theme: 'auto' | 'light' | 'dark';
+  wakeLock: boolean;
 }
 
 export interface Profile {
   id: string;
   name: string;
-  role: Role;
-  trainerId: string | null;
-  center: CenterId;
-  /** Código que el entrenador comparte para que sus clientes se vinculen. */
-  code: string | null;
-  /** Ajustes de máquina por ejercicio: "asiento 4, respaldo 2". */
-  exerciseNotes: Record<string, string>;
   email?: string;
+  role: Role;
+  trainerId?: string | null;
+  trainerName?: string | null;
+  linkedAt?: number | null;
+  shareBody?: boolean;
+  days?: number;
+  createdAt: number;
+  settings?: Partial<Settings>;
+  /** solo entrenador: alternativas aprobadas por ejercicio (si no hay entrada, valen las del catálogo) */
+  approvedAlts?: Record<string, string[]>;
+  /** solo entrenador: avisos ya atendidos (clave del aviso → fecha) */
+  dismissed?: Record<string, number>;
 }
 
-/** Objetivo de una serie: "12", "8-10", "30s", "AMRAP". */
-export interface SetTarget {
-  reps: string;
-}
-
-export interface RoutineExercise {
-  uid: string;
-  exerciseId: string;
-  sets: SetTarget[];
-  restSec: number;
-  note?: string;
-  /** Se hace en superserie con el siguiente ejercicio. */
-  supersetNext?: boolean;
+export interface PlanExercise {
+  id: string;
+  exerciseId: string | null;
+  rawName?: string;
+  sets: number;
+  reps: number;
+  weight: number | null;
+  restSec?: number;
 }
 
 export interface RoutineDay {
   id: string;
   name: string;
-  description?: string;
-  groups: GroupId[];
-  exercises: RoutineExercise[];
+  group: DayGroup;
+  exercises: PlanExercise[];
 }
 
 export interface Routine {
   id: string;
-  clientId: string;
-  authorId: string;
-  authorRole: Role;
+  ownerId: string;
+  ownerRole: Role;
+  clientId: string | null;
+  trainerId: string | null;
   name: string;
-  description?: string;
   days: RoutineDay[];
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
+  template: boolean;
+  week: number;
+  createdAt: number;
+  updatedAt: number;
+  uses?: number;
+  basedOn?: string | null;
+  /** copia del plan antes de una semana de descarga, para volver a él */
+  prevDays?: RoutineDay[] | null;
 }
 
-export interface LoggedSet {
+export interface SetLog {
   weight: number | null;
-  reps: number | null;
-  seconds: number | null;
-  km: number | null;
+  reps: number;
   done: boolean;
+  feel?: Feel | null;
+  at?: number | null;
 }
 
-export interface WorkoutEntry {
-  uid: string;
-  exerciseId: string;
-  /** Si se sustituyó, el ejercicio que había en la rutina. */
-  replacedId?: string;
-  target: SetTarget[];
-  restSec: number;
-  sets: LoggedSet[];
+export interface EntryLog {
+  id: string;
+  planId: string | null;
+  exerciseId: string | null;
+  name: string;
+  substituteOf?: string | null;
+  target: { sets: number; reps: number; weight: number | null };
+  sets: SetLog[];
+  skipped?: boolean;
   note?: string;
 }
 
 export interface Workout {
   id: string;
   clientId: string;
+  trainerId: string | null;
   routineId: string | null;
   dayId: string | null;
   dayName: string;
-  startedAt: string;
-  finishedAt: string | null;
-  entries: WorkoutEntry[];
-  /** Sensaciones 1-5. */
-  feeling: number | null;
-  notes: string;
-  trainerComment: string | null;
+  group: DayGroup;
+  startedAt: number;
+  endedAt: number | null;
+  status: 'active' | 'done' | 'incomplete';
+  entries: EntryLog[];
+  note?: string;
+  busy?: { exerciseId: string; at: number }[];
+  /** series previstas al empezar (para "12 / 20" aunque se guarde a medias) */
+  planned?: number;
+}
+
+export interface Suggestion {
+  id: string;
+  routineId: string;
+  dayId: string;
+  planId: string;
+  clientId: string;
+  trainerId: string;
+  fromExerciseId: string;
+  toExerciseId: string;
+  reason: string;
+  status: 'pending' | 'accepted' | 'tryonce' | 'rejected';
+  createdAt: number;
+  answeredAt?: number | null;
+}
+
+export interface BodyValue {
+  value: number;
+  min?: number;
+  max?: number;
+}
+
+export interface BodyReport {
+  id: string;
+  clientId: string;
+  trainerId: string | null;
+  date: number;
+  dateStr: string;
+  score: number | null;
+  postureScore: number | null;
+  height?: number | null;
+  composition: Record<string, BodyValue>;
+  posture: Record<string, { value: number; unit: string; note?: string }>;
+  circumferences: Record<string, number>;
+  segmental?: { fat: Record<string, number>; lean: Record<string, number> } | null;
+  createdAt: number;
+}
+
+export interface Note {
+  id: string;
+  clientId: string;
+  trainerId: string;
+  clientName: string;
+  kind: 'note' | 'alert';
+  text: string;
+  exerciseId?: string | null;
+  workoutId?: string | null;
+  createdAt: number;
+  seen: boolean;
+}
+
+export interface Invite {
+  id: string;
+  trainerId: string;
+  trainerName: string;
+  clientName: string;
+  days: number;
+  createdAt: number;
+  expiresAt: number;
+  usedBy?: string | null;
+}
+
+export interface MachinePrefs {
+  /** ajustes de máquina por ejercicio: asiento, tope, pies, carro (peso del carro o barra) */
+  settings: Record<string, { asiento?: string; tope?: string; pies?: string; base?: number }>;
+  notes: Record<string, string>;
 }
