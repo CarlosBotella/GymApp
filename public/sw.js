@@ -1,5 +1,5 @@
 // Catálogo y pantallas disponibles sin conexión; las imágenes se guardan al verlas.
-const VERSION = 'gymapp-free-exercises-v2';
+const VERSION = 'gymapp-free-exercises-v3';
 const CACHE_PREFIX = 'gymapp-';
 const appUrl = (path) => new URL(path, self.registration.scope).href;
 

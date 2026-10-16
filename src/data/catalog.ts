@@ -1,3 +1,4 @@
+import { attachAlternatives } from './alternatives';
 import { buildFreeCatalog, MUSCLE_NAMES } from './free-exercises';
 import { norm } from '../lib/util';
 import type { DayGroup, Exercise, GroupId, Load } from '../lib/types';
@@ -236,7 +237,7 @@ export const ORIGINAL_EXERCISES: Exercise[] = [
     ['De rodillas, rueda bajo los hombros', 'Rueda hacia delante con la espalda neutra', 'Vuelve tirando con el abdomen'], 'bodyweight'),
 ];
 
-export const EXERCISES: Exercise[] = buildFreeCatalog(ORIGINAL_EXERCISES);
+export const EXERCISES: Exercise[] = attachAlternatives(buildFreeCatalog(ORIGINAL_EXERCISES));
 
 export const BY_ID: Record<string, Exercise> = Object.fromEntries(EXERCISES.map((x) => [x.id, x]));
 
@@ -305,6 +306,7 @@ export function increment(x: Exercise | undefined, inc: { machine: number; dumbb
 
 /** Carga equivalente al cambiar de ejercicio */
 export function equivalent(from: Exercise | undefined, to: Exercise | undefined, weight: number | null, inc: { machine: number; dumbbell: number }): number | null {
+  if (from?.measure !== to?.measure || from?.alternativeNotes?.[to?.id || '']?.startsWith('Ejercicio relacionado')) return null;
   if (from?.imported || to?.imported) return null;
   if (!from || !to || weight === null || !from.ref || !to.ref) return to && to.load === 'bodyweight' ? null : weight;
   const step = increment(to, inc) || 1;

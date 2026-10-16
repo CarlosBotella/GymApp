@@ -23,6 +23,8 @@ export function Exercises() {
   const [open, setOpen] = useState<string | null>(null);
   const [assign, setAssign] = useState<{ routineId: string; planId: string; raw: string } | null>(null);
   const [pickQ, setPickQ] = useState('');
+  const [altFor, setAltFor] = useState<string | null>(null);
+  const [altQuery, setAltQuery] = useState('');
   if (!td.ready) return <Loading />;
   const approved = me.approvedAlts || {};
   const altsOf = (id: string) => approved[id] ?? ex(id)?.alts ?? [];
@@ -126,10 +128,15 @@ export function Exercises() {
                 <div style={{ paddingBottom: 10 }}>
                   {candidates.map((a) => (
                     <div key={a} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 }}>
-                      <span style={{ fontSize: 15 }}>{ex(a)?.name}</span>
+                      <span className="col" style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, padding: '6px 8px 6px 0' }}>
+                        <span style={{ fontSize: 15 }}>{ex(a)?.name}</span>
+                        <span className="xs mute">{x.alternativeNotes?.[a] || 'Seleccionada por tu entrenador'}</span>
+                      </span>
                       <Switch on={cur.includes(a)} onChange={(v) => toggle(x.id, a, v)} label={`Aprobar ${ex(a)?.name}`} />
                     </div>
                   ))}
+                  <p className="xs mute" style={{ marginTop: 6 }}>Sugerencias automáticas por movimiento y músculos. Puedes activar o desactivar cada opción.</p>
+                  <button type="button" className="txt accent" onClick={() => { setAltFor(x.id); setAltQuery(''); }}>Añadir otra del catálogo</button>
                   {!candidates.length && <p className="xs mute">Sin alternativas aprobadas para este ejercicio.</p>}
                   <a className="txt accent" href={href(`/ejercicio/${x.id}`)}>Ver imágenes e instrucciones</a>
                 </div>
@@ -141,6 +148,20 @@ export function Exercises() {
         {list.length > limit && <button type="button" className="btn2" onClick={() => setLimit(limit + 60)}>Ver 60 más ({list.length - limit} restantes)</button>}
       </div>
       <TrainerNav active="ejercicios" />
+      {altFor && (
+        <Sheet label="Añadir alternativa" onClose={() => setAltFor(null)}>
+          <h2 className="h2" style={{ margin: '16px 0 8px' }}>Alternativas de {ex(altFor)?.name}</h2>
+          <input className="input" aria-label="Buscar otra alternativa" placeholder="Nombre, músculo o material" value={altQuery} onChange={(event) => setAltQuery(event.target.value)} />
+          <p className="xs mute" style={{ marginTop: 8 }}>Elige una opción para añadirla a las alternativas del cliente.</p>
+          {searchCatalog(altQuery).filter((candidate) => candidate.id !== altFor && !altsOf(altFor).includes(candidate.id)).slice(0, 30).map((candidate) => (
+            <button key={candidate.id} type="button" className="row" onClick={() => { toggle(altFor, candidate.id, true); toast('Alternativa añadida'); }}>
+              <span className="col"><span className="t">{candidate.name}</span><span className="s">{candidate.equipment} · {candidate.measure === 'seconds' ? 'Segundos' : 'Repeticiones'}</span></span>
+              <span className="xs accent-t">Añadir</span>
+            </button>
+          ))}
+          <button type="button" className="btn" style={{ marginTop: 12 }} onClick={() => setAltFor(null)}>Listo</button>
+        </Sheet>
+      )}
       {assign && (
         <Sheet label="Asignar ejercicio" onClose={() => setAssign(null)}>
           <h2 className="h2" style={{ margin: '16px 0 4px', fontSize: 24 }}>¿Qué es «{assign.raw}»?</h2>

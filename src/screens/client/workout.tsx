@@ -532,6 +532,7 @@ export function LiveWorkout() {
               const e = d.workout.entries[d.current];
               const alt = ex(altId)!;
               const remaining = e.sets.filter((st) => !st.done).length || e.target.sets;
+              const reps = alt.measure === ex(e.exerciseId)?.measure ? e.target.reps : alt.measure === 'seconds' ? 30 : 10;
               const doneSets = e.sets.filter((st) => st.done);
               const newEntry: EntryLog = {
                 id: uid(8),
@@ -539,8 +540,8 @@ export function LiveWorkout() {
                 exerciseId: altId,
                 name: alt.name,
                 substituteOf: e.exerciseId,
-                target: { ...e.target, weight },
-                sets: Array.from({ length: remaining }, () => ({ weight: alt.load === 'bodyweight' ? null : weight, reps: e.target.reps, done: false, feel: null, at: null })),
+                target: { ...e.target, weight, reps },
+                sets: Array.from({ length: remaining }, () => ({ weight: alt.load === 'bodyweight' ? null : weight, reps, done: false, feel: null, at: null })),
               };
               d.workout.busy = [...(d.workout.busy || []), { exerciseId: e.exerciseId || '', at: Date.now() }];
               if (doneSets.length) {
@@ -549,7 +550,8 @@ export function LiveWorkout() {
                 d.current = d.current + 1;
               } else d.workout.entries[d.current] = newEntry;
             }, true);
-            setSheet(null);
+            const alt = ex(altId)!;
+            setSheet((alt.load !== 'bodyweight' && weight === null) || alt.measure !== x?.measure ? 'load' : null);
           }}
           onWait={() => {
             update((d) => void (d.waitingSince = Date.now()));
@@ -709,7 +711,7 @@ function BusySheet({
   const x = ex(entry.exerciseId);
   const nx = compatibleNext(s.workout, s.current);
   const next = nx >= 0 ? s.workout.entries[nx] : null;
-  const alts = approved(entry.exerciseId, x?.alts || []).map((id) => ex(id)).filter(Boolean).slice(0, 3);
+  const alts = approved(entry.exerciseId, x?.alts || []).map((id) => ex(id)).filter(Boolean);
   const weight = entry.sets.find((st) => !st.done)?.weight ?? entry.target.weight;
   const doneCount = entry.sets.filter((st) => st.done).length;
   return (
@@ -747,9 +749,10 @@ function BusySheet({
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <span className="m">{a!.name}</span>
                     <span className="xs mute">{a!.equipment}</span>
+                    <span className="xs mute">{x?.alternativeNotes?.[a!.id] || 'Seleccionada por tu entrenador'}</span>
                   </span>
                   <span style={{ fontSize: 15 }}>
-                    {a!.load === 'bodyweight' ? 'Peso corporal' : `${a!.load === 'dumbbell' ? '2 × ' : ''}${n(eq)} kg`} · {entry.target.reps}
+                    {a!.load === 'bodyweight' ? 'Peso corporal' : eq === null ? 'Ajustar carga' : `${a!.load === 'dumbbell' ? '2 × ' : ''}${n(eq)} kg`} · {a!.measure === x?.measure ? entry.target.reps : a!.measure === 'seconds' ? 30 : 10}{a!.measure === 'seconds' ? ' s' : ' reps'}
                   </span>
                 </button>
               );

@@ -16,6 +16,7 @@ export interface Exercise {
   /** peso de trabajo típico de un intermedio, para calcular equivalencias entre alternativas */
   ref: number;
   alts: string[];
+  alternativeNotes?: Record<string, string>;
   steps: string[];
   sourceId?: string;
   sourceUrl?: string;

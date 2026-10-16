@@ -184,8 +184,9 @@ export function ExerciseSheet({ id }: { id: string }) {
                   <span className="col">
                     <span className="m" style={{ fontSize: 15 }}>{a!.name}</span>
                     <span className="xs mute">{a!.equipment}</span>
+                    <span className="xs mute">{x.alternativeNotes?.[a!.id] || 'Seleccionada por tu entrenador'}</span>
                   </span>
-                  <span className="small">{a!.load === 'bodyweight' ? 'Peso corporal' : `${a!.load === 'dumbbell' ? '2 × ' : ''}${n(eq)} kg`}</span>
+                  <span className="small">{a!.load === 'bodyweight' ? 'Peso corporal' : eq === null ? 'Ajustar carga' : `${a!.load === 'dumbbell' ? '2 × ' : ''}${n(eq)} kg`}</span>
                 </a>
               );
             })}
